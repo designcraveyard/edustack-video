@@ -52,3 +52,75 @@ button:hover { filter: brightness(1.05); }
 .status { min-height: 1.2em; color: var(--muted); font-size: 13px; }
 [data-show-when] { display: none; }
 [data-show-when].active { display: block; }
+
+/* --- voice combobox --- */
+.voice-combo { position: relative; }
+.voice-trigger { display: flex; gap: 8px; align-items: stretch; }
+.voice-trigger input[type=text] {
+  flex: 1;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+.voice-trigger input[type=text]:focus { outline: none; border-color: var(--accent); }
+.voice-play {
+  margin-top: 0;
+  padding: 8px 12px;
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.voice-play[data-playing="true"] { background: #1f2937; color: var(--text); }
+.voice-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  z-index: 30;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+}
+.voice-row {
+  display: flex; gap: 10px; align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.voice-row:last-child { border-bottom: 0; }
+.voice-row:hover, .voice-row[data-active="true"] { background: #1c222b; }
+.voice-row-info { flex: 1; min-width: 0; }
+.voice-row-name { font-size: 13px; color: var(--text); }
+.voice-row-labels { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.voice-row-play {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.voice-row-play[data-playing="true"] { background: #1f2937; color: var(--text); }
+.voice-list-empty, .voice-list-loading {
+  padding: 14px; color: var(--muted); font-size: 12px; text-align: center;
+}
+.voice-error {
+  margin: 4px 0 0; color: var(--danger); font-size: 11px;
+}

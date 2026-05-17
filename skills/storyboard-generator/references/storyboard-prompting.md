@@ -48,6 +48,18 @@ When `character_mode != none`, attach `characters/sheet.png` via `reference_imag
 
 Always extract a 3-color hex palette from `characters/analysis.json` (or a synthesized one for `character_mode: none`) and force it into every prompt. Stops palette drift across beats.
 
+## Split-screen / side-by-side compositions
+
+Split-screen scenes (before/after, A vs B, then vs now, contrast pairs) follow a strict orientation rule keyed to the canvas aspect. The rule is embedded in `KEYFRAME_PROMPT` and `CLIP_PROMPT` and must stay consistent across keyframe → clip → re-prompts.
+
+| Canvas | Split direction | Reasoning |
+|---|---|---|
+| **16:9** (horizontal) | Vertical line down the middle — **left ⎮ right** halves | Wide canvas wastes space if stacked; eye scans L→R naturally |
+| **9:16** (vertical) | Horizontal line across the middle — **top ▬ bottom** halves | NEVER split a 9:16 frame vertically — it produces two unreadably narrow strips. Mobile users hold the phone upright; top/bottom reads naturally. |
+| **1:1** | Prefer top/bottom; left/right acceptable | Either works; consistency within the run matters more than which one |
+
+The same rule applies to clip generation — a beat that's a "still keyframe with subtle motion" must inherit the keyframe's split orientation. The auto-corrective Gemini analysis flags violations as `regen_recommendation: minor` with addendum like *"reorient split to horizontal for 9:16 aspect"*.
+
 ## Anti-pattern checklist
 
 - Do not request "cinematic lens flare" — it produces unreadable thumbnails.

@@ -4,6 +4,14 @@ All notable changes to `edustack-video` will be documented here. Format inspired
 
 ## [Unreleased]
 
+### Brief UI + VO improvements (2026-05-17 evening)
+- **Brief UI voice picker** is now a live ElevenLabs combobox matching the Edustack `publisher/generate` `VoiceComboBox` UX. Server adds `GET /voices?language=…` that reads `<output>/.config/elevenlabs.key`, fetches `/v1/voices`, scores Indian-accent voices first for Hindi/Hinglish/Tamil/Bengali/Marathi, caches 5 min, and returns a slim `{voice_id, name, preview_url, labels}` list. The form replaces the static `<select>` with a searchable + scroll-paginated dropdown with per-row and selected-voice play/stop preview buttons. Refetches on `language` change.
+- **ElevenLabs model pinned to `eleven_v3`** in `seed/models.yaml`, `ElevenLabsClient.tts_with_timestamps`, and `phase_vo`. Required for correct multilingual phonemizing — older `multilingual_v2` mispronounces Hinglish-in-Devanagari and other Indic scripts.
+- **Hinglish narration must be in Devanagari** — the `STANDARD_SYSTEM` prompt in `phase_script.py` now spells this out as non-negotiable: Hindi/Hinglish/Marathi → Devanagari, Tamil → Tamil script, Bengali → Bengali script. Romanised text is forbidden because EL phonemizes Latin characters with English phonemes.
+- **`word_to_word` mode warns on language mismatch** — if the chapter source contains no native-script characters for the brief's language, the run logs a `warn` event so the user knows the VO will mispronounce.
+- **Split-screen composition rule** is now embedded in `KEYFRAME_PROMPT` and `CLIP_PROMPT` and the `storyboard-prompting.md` reference: 16:9 → vertical split (left ⎮ right), 9:16 → horizontal split (top ▬ bottom). Never split a vertical canvas down the middle.
+- **Audio prompt is now persisted** — `phase_vo` writes `<run-dir>/audio/full-vo.prompt.txt` (the exact narration sent to EL) and `<run-dir>/audio/full-vo.prompt.json` (voice_id, voice_name, model_id, output_format, language, char count, endpoint) BEFORE the API call, so a failed run still leaves the prompt on disk for inspection.
+
 ### Pivot — Supabase replaces FastAPI VPS
 - Dropped the standalone FastAPI/Caddy observability service that ran on `eduplugin.birdzeye.in`. It required GHCR image hosting, Hostinger MCP deploys, Caddy TLS issuance, and a per-user bearer-token bootstrap — none of which earned its complexity given that the user already runs an Edustack Supabase + Next.js stack.
 - Replaced with **one Supabase table** (`public.eduplugin_events`) on the existing Edustack project. Six streams (`logs`, `prompts`, `analyses`, `gates`, `heartbeat`, `chat`) live as rows; the plugin writes with the project's anon key; reads are gated by the EduStack-Platform admin route.

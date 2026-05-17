@@ -89,6 +89,25 @@ def estimate_seconds(text: str, language: str = "English") -> float:
     return round(n / wps, 1)
 
 
+DEVANAGARI_RE = re.compile(r"[ऀ-ॿ]")
+TAMIL_RE      = re.compile(r"[஀-௿]")
+BENGALI_RE    = re.compile(r"[ঀ-৿]")
+
+
+def warn_script_mismatch(text: str, language: str, log) -> None:
+    """word_to_word mode preserves the chapter verbatim — we can only warn if
+    the source isn't in the script ElevenLabs needs for correct phonemes."""
+    expected = {"Hindi": DEVANAGARI_RE, "Hinglish": DEVANAGARI_RE,
+                "Marathi": DEVANAGARI_RE, "Tamil": TAMIL_RE, "Bengali": BENGALI_RE}.get(language)
+    if not expected:
+        return
+    if not expected.search(text):
+        log.log(getattr(log, "run_id", ""), "script", "warn",
+                f"word_to_word source for language={language} contains no native-script "
+                f"characters. ElevenLabs will likely mispronounce with English phonemes. "
+                f"Re-source the chapter in native script or switch to script_mode=standard.")
+
+
 def build_word_to_word(brief: dict, raw_text: str) -> script_io.Script:
     # Normalize whitespace
     text = re.sub(r"\r\n?", "\n", raw_text)
@@ -126,7 +145,23 @@ STANDARD_SYSTEM = textwrap.dedent("""\
     Each beat is ONE concept, animatable, with verbs and concrete nouns.
     Sum of seconds must equal the target duration within ±10%.
     Use class-appropriate vocabulary; do not introduce a term before defining it visually.
-    Hindi/Tamil/Bengali/Marathi/Hinglish output should use native script when the language is set to that.
+
+    SCRIPT (NARRATION) MUST BE IN NATIVE SCRIPT — this is non-negotiable because
+    ElevenLabs phonemizes based on what is written, and Roman characters get
+    pronounced with English phonemes:
+      - language="Hindi"     → entire narration in Devanagari (देवनागरी).
+                               Romanised Hindi like "yaar suno" is forbidden.
+      - language="Hinglish"  → write Hindi words in Devanagari and English
+                               LOANWORDS ALSO in Devanagari (transliterated):
+                               "फोटोसिंथेसिस एक प्रोसेस है" — NOT
+                               "photosynthesis ek process hai".
+                               No Latin characters anywhere in narration.
+      - language="Marathi"   → Devanagari.
+      - language="Tamil"     → Tamil script (தமிழ்).
+      - language="Bengali"   → Bengali script (বাংলা).
+      - language="English"   → Latin/Roman script.
+    `visual` (the hint comment) and `label` may stay in English in all cases —
+    they aren't spoken, only the `narration` strings are.
 """)
 
 

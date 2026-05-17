@@ -19,7 +19,7 @@ description: Use during Phase 2 of a video run. Generates the full voiceover fro
 
 1. Strip frontmatter and visual-hint comments from `script.md`; keep narration only.
 2. Insert SSML / audio tags only where they materially help (laugh, sigh, pause-2s). See @references/elevenlabs-best-practices.md.
-3. Call `POST /v1/text-to-speech/{voice_id}` with `output_format=mp3_44100_192` and `with_timestamps=true`.
+3. Call `POST /v1/text-to-speech/{voice_id}/with-timestamps` with `model_id=eleven_v3` (pinned — required for Hinglish-in-Devanagari phonemizing and audio tags), `output_format=mp3_44100_192`. NEVER downgrade to `multilingual_v2` or `flash_v2_5` without re-verifying non-English phonemes.
 4. Save MP3. Parse the alignment payload into `vo_timeline.json` with: `words[]`, `beats[]` (computed from beat boundaries in the original script), `total_duration_ms`.
 5. Validate: every beat from `script.md` is represented in `beats[]`. If word count drift > 5%, flag.
 6. Log to VPS `/prompts`. POST the prompt + alignment summary.

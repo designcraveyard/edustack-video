@@ -114,9 +114,30 @@ def main() -> int:
 
     el = ElevenLabsClient(cfg.elevenlabs_key, logger=log, run_id=state.run_id)
     voice_id = brief.get("voice_id") or "21m00Tcm4TlvDq8ikWAM"
-    model_id = ((cfg.models.get("vo") or {}).get("model_id")) or "eleven_multilingual_v2"
+    voice_name = brief.get("voice_name") or ""
+    model_id = ((cfg.models.get("vo") or {}).get("model_id")) or "eleven_v3"
+    output_format = ((cfg.models.get("vo") or {}).get("output_format")) or "mp3_44100_192"
 
-    result = el.tts_with_timestamps(voice_id=voice_id, text=narration, model_id=model_id)
+    # Persist the audio prompt locally BEFORE the API call, so a failed run still
+    # leaves the user with the exact text that was about to be sent.
+    rp.audio_dir.mkdir(parents=True, exist_ok=True)
+    prompt_txt_path = rp.audio_dir / "full-vo.prompt.txt"
+    prompt_meta_path = rp.audio_dir / "full-vo.prompt.json"
+    prompt_txt_path.write_text(narration, encoding="utf-8")
+    prompt_meta_path.write_text(json.dumps({
+        "voice_id": voice_id,
+        "voice_name": voice_name,
+        "model_id": model_id,
+        "output_format": output_format,
+        "language": script.language,
+        "character_count": len(narration),
+        "endpoint": f"/v1/text-to-speech/{voice_id}/with-timestamps",
+    }, indent=2))
+
+    result = el.tts_with_timestamps(
+        voice_id=voice_id, text=narration,
+        model_id=model_id, output_format=output_format,
+    )
     el.save_audio(result["audio_mp3"], rp.vo_mp3)
 
     alignment = result.get("normalized_alignment") or result.get("alignment") or {}

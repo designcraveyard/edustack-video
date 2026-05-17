@@ -45,5 +45,9 @@ vision_analysis:
 vo:
   provider: elevenlabs
   default_voice_id: 21m00Tcm4TlvDq8ikWAM
-  model_id: eleven_multilingual_v2
+  # ElevenLabs v3 — pinned. Required for multilingual phonemizing (Hinglish in
+  # Devanagari, Tamil/Bengali in native scripts) and for audio-tag rendering.
+  # Do NOT downgrade to multilingual_v2 / flash without first re-verifying that
+  # Hinglish narration in Devanagari renders correctly.
+  model_id: eleven_v3
   output_format: mp3_44100_192

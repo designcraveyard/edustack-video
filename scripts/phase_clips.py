@@ -39,6 +39,12 @@ CLIP_PROMPT = textwrap.dedent("""\
     needed, prefer gentle parallax / push-in (≤10% over the whole clip).
     Hold characters' identities and palette identical to the keyframe.
 
+    SPLIT-SCREEN RULE (only if the scene contains a comparison or before/after):
+    - 16:9 (horizontal canvas): split VERTICALLY into left | right halves.
+    - 9:16 (vertical canvas)  : split HORIZONTALLY into top / bottom halves.
+                                NEVER split a 9:16 frame down the middle vertically.
+    - 1:1                    : prefer top/bottom.
+
     CHARACTERS:
     {chars}
 

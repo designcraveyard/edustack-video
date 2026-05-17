@@ -42,7 +42,7 @@ class ElevenLabsClient:
 
     def tts_with_timestamps(
         self, voice_id: str, text: str,
-        model_id: str = "eleven_multilingual_v2",
+        model_id: str = "eleven_v3",
         output_format: str = "mp3_44100_192",
         voice_settings: dict | None = None,
     ) -> dict:

@@ -32,7 +32,25 @@
           <select name="style" data-options="style"></select>
         </label>
         <label>Voice
-          <select name="voice_id" data-options="voice_id"></select>
+          <div id="voice-combo" class="voice-combo" data-name="voice_id">
+            <div class="voice-trigger">
+              <input
+                type="text"
+                id="voice-search"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Loading voices…"
+              />
+              <button type="button" id="voice-play" class="voice-play" title="Preview">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><polygon points="2,1 10,6 2,11"></polygon></svg>
+                <span>Play</span>
+              </button>
+            </div>
+            <div id="voice-list" class="voice-list" role="listbox" hidden></div>
+            <input type="hidden" name="voice_id" id="voice-id" value="" />
+            <input type="hidden" name="voice_name" id="voice-name" value="" />
+            <p id="voice-error" class="voice-error" hidden></p>
+          </div>
         </label>
       </div>
 

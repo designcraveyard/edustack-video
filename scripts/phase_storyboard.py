@@ -57,6 +57,12 @@ KEYFRAME_PROMPT = textwrap.dedent("""\
     Camera: static medium. Composition: rule of thirds; reading direction L-to-R.
     Background: appropriate to the style; uncluttered.
 
+    SPLIT-SCREEN / SIDE-BY-SIDE RULE (only if the scene calls for comparison):
+    - 16:9 (horizontal canvas): split VERTICALLY into left | right halves.
+    - 9:16 (vertical canvas)  : split HORIZONTALLY into top / bottom halves.
+                                NEVER split a 9:16 frame down the middle vertically.
+    - 1:1                    : prefer top/bottom; left/right is acceptable.
+
     Constraints: no text, no captions, no logos, no UI elements.
 """)
 
