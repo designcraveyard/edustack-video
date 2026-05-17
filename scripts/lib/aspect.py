@@ -27,25 +27,42 @@ FAL_PRESET_FOR_ASPECT = {
 }
 
 
-def fal_image_size(aspect: str, model: str | None = None) -> str | dict:
+def fal_image_size(
+    aspect: str,
+    model: str | None = None,
+    models_cfg: dict | None = None,
+    stage: str | None = None,
+) -> str | dict:
     """Return the image_size value to send to a fal.ai image model.
 
-    Some models (nano-banana-2, flux) prefer named presets; others
-    (gpt-image-2) accept explicit {width, height}. Default: preset name when
-    the model is nano-banana / flux-family; explicit dimensions otherwise.
+    Override precedence (first match wins):
+      1. `models_cfg[stage].image_size` — user / Claude-supplied override in
+         <output>/.config/models.yaml. May be either a preset string
+         (e.g. "portrait_hd") or {"width": W, "height": H}.
+      2. Model-based default: nano-banana / flux / imagen / ideogram → preset
+         name keyed by aspect; gpt-image-2 → explicit {width, height}.
+      3. Fallback: landscape_16_9.
 
     The return value is meant to be dropped into a fal payload as-is:
-        payload["image_size"] = fal_image_size(aspect, model)
+        payload["image_size"] = fal_image_size(aspect, model, cfg.models, "per_keyframe")
     """
+    # 1. Stage-level override
+    if models_cfg and stage:
+        stage_cfg = models_cfg.get(stage) or {}
+        override = stage_cfg.get("image_size")
+        if isinstance(override, str) and override.strip():
+            return override
+        if isinstance(override, dict) and "width" in override and "height" in override:
+            return {"width": int(override["width"]), "height": int(override["height"])}
+
+    # 2. Model-based default
     aspect = aspect or "16:9"
     preset = FAL_PRESET_FOR_ASPECT.get(aspect, "landscape_16_9")
     if not model:
         return preset
     m = model.lower()
-    # nano-banana, flux, imagen all 422 on arbitrary {w,h} → use preset
     if "nano-banana" in m or "flux" in m or "imagen" in m or "ideogram" in m:
         return preset
-    # gpt-image-2 and any-llm-derived ones accept explicit dimensions
     if "gpt-image" in m:
         w, h = parse_wh({
             "16:9": "1536x864",

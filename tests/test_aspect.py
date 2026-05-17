@@ -37,3 +37,36 @@ def test_grid_for_beats_clamps():
     assert rows * cols >= 1
     rows, cols = grid_for_beats("16:9", 100)
     assert rows * cols <= 16
+
+
+from scripts.lib.aspect import fal_image_size
+
+
+def test_fal_image_size_nano_banana_uses_preset():
+    assert fal_image_size("9:16", "fal-ai/nano-banana-2") == "portrait_16_9"
+    assert fal_image_size("16:9", "fal-ai/nano-banana-2") == "landscape_16_9"
+    assert fal_image_size("1:1", "fal-ai/nano-banana-2") == "square_hd"
+
+
+def test_fal_image_size_gpt_image_uses_dimensions():
+    out = fal_image_size("9:16", "fal-ai/gpt-image-2")
+    assert isinstance(out, dict)
+    assert out["width"] == 864 and out["height"] == 1536
+
+
+def test_fal_image_size_stage_override_preset_string():
+    cfg = {"per_keyframe": {"image_size": "portrait_hd"}}
+    assert fal_image_size("9:16", "fal-ai/nano-banana-2", cfg, "per_keyframe") == "portrait_hd"
+
+
+def test_fal_image_size_stage_override_dimensions():
+    cfg = {"per_keyframe": {"image_size": {"width": 720, "height": 1280}}}
+    out = fal_image_size("9:16", "fal-ai/nano-banana-2", cfg, "per_keyframe")
+    assert out == {"width": 720, "height": 1280}
+
+
+def test_fal_image_size_stage_override_only_applies_to_named_stage():
+    cfg = {"per_keyframe": {"image_size": "portrait_hd"}}
+    # storyboard_panel has no override → falls back to gpt-image-2 default dims
+    out = fal_image_size("9:16", "fal-ai/gpt-image-2", cfg, "storyboard_panel")
+    assert out == {"width": 864, "height": 1536}

@@ -1,9 +1,20 @@
 # Default per-stage model picks. Copy this to <output>/.config/models.yaml at setup.
 # Users override per-key after install.
 #
-# Image sizes derive from brief.aspect at runtime — see `aspect_sizes` below.
-# Scripts read `aspect_sizes[brief.aspect]` for storyboard_panel / per_keyframe.
-# Only character_sheet stays 1:1 because it's a reference grid, not a video frame.
+# Image-size resolution order (first match wins, evaluated by
+# scripts.lib.aspect.fal_image_size):
+#   1. <stage>.image_size  — explicit per-stage override, set here or in
+#      <output>/.config/models.yaml. Accepts either a fal preset string
+#      ("portrait_16_9", "landscape_16_9", "square_hd", "portrait_hd",
+#      "landscape_hd", "square") OR an object {width: N, height: N}.
+#      Claude may rewrite this during a run if a specific shot needs a
+#      different preset.
+#   2. Model-based default — nano-banana / flux / imagen / ideogram get the
+#      preset for brief.aspect; gpt-image-2 gets explicit {w,h}.
+#   3. Fallback — landscape_16_9.
+#
+# `aspect_sizes` below is informational; the canonical sizing path is
+# fal_image_size(). Setting `<stage>.image_size` overrides everything.
 
 aspect_sizes:
   "16:9":
@@ -18,19 +29,21 @@ aspect_sizes:
 
 storyboard_panel:
   model: fal-ai/gpt-image-2
-  # size: derived from aspect_sizes[brief.aspect].storyboard_panel
-  # For multi-beat sheets we keep the SINGLE-PANEL render size above and ask
-  # gpt-image-2 to draw an NxM grid INSIDE that frame (so the slicer carves cells
-  # of the right aspect). N rows × M cols computed at runtime from beat count
-  # and brief.aspect (wider aspects favour more cols; 9:16 favours more rows).
+  # image_size: portrait_16_9        # uncomment to override the default.
+  # image_size: { width: 1536, height: 864 }   # explicit form also accepted.
+  # Default behaviour: aspect-derived from brief.aspect:
+  #   16:9 → {width:1536,height:864}; 9:16 → {width:864,height:1536}; 1:1 → {width:1024,height:1024}.
 
 per_keyframe:
   model: fal-ai/nano-banana-2
-  # size: derived from aspect_sizes[brief.aspect].per_keyframe
+  # image_size: portrait_hd          # uncomment to force a preset (e.g. when
+  #                                    the aspect-derived preset doesn't suit).
+  # Default: 16:9 → landscape_16_9; 9:16 → portrait_16_9; 1:1 → square_hd.
 
 character_sheet:
   model: fal-ai/nano-banana-2
-  size: 1024x1024                  # 1:1 by design — reference grid, not a frame
+  # image_size: square_hd            # 1:1 by design — overridable here.
+  size: 1024x1024                    # legacy hint (still respected if image_size absent)
 
 video_i2v:
   model: fal-ai/bytedance/seedance/v1.5/pro/image-to-video

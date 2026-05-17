@@ -155,7 +155,7 @@ def main() -> int:
         prompt = PANEL_PROMPT.format(rows=rows, cols=cols, aspect=aspect,
                                      style=style, chars=chars, panel_list=panel_list)
         model = (cfg.models.get("storyboard_panel") or {}).get("model") or "fal-ai/gpt-image-2"
-        image_size = fal_image_size(aspect, model)
+        image_size = fal_image_size(aspect, model, cfg.models, "storyboard_panel")
         result = panel_call(fal, model, prompt, image_size)
         img_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
         if not img_url:
@@ -176,7 +176,7 @@ def main() -> int:
 
     else:  # per_keyframe
         model = (cfg.models.get("per_keyframe") or {}).get("model") or "fal-ai/nano-banana-2"
-        image_size = fal_image_size(aspect, model)
+        image_size = fal_image_size(aspect, model, cfg.models, "per_keyframe")
         for b in script.beats:
             prompt = KEYFRAME_PROMPT.format(
                 style=style, aspect=aspect, chars=chars,

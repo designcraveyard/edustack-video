@@ -133,9 +133,10 @@ def main() -> int:
     char_para = char_paragraph_from_script(script, notes)
     model = (cfg.models.get("character_sheet") or {}).get("model") or "fal-ai/nano-banana-2"
     # Character sheet is always 1:1 by design. nano-banana / flux / imagen
-    # reject arbitrary {w,h}; use a preset.
+    # reject arbitrary {w,h}; use a preset. Stage-level override at
+    # cfg.models["character_sheet"]["image_size"] takes precedence.
     from scripts.lib.aspect import fal_image_size
-    image_size = fal_image_size("1:1", model)
+    image_size = fal_image_size("1:1", model, cfg.models, "character_sheet")
     va = VisualAnalyzer(fal, logger=log, run_id=state.run_id)
 
     base_prompt = (
