@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  app:
+    build: ./app
+    container_name: eduplugin-app
+    restart: unless-stopped
+    environment:
+      EDUPLUGIN_DATA_DIR: /var/lib/eduplugin
+      EDUPLUGIN_BIND: 0.0.0.0:8000
+    volumes:
+      - eduplugin-data:/var/lib/eduplugin
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: eduplugin-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  eduplugin-data:
+  caddy-data:
+  caddy-config:

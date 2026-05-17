@@ -1,0 +1,11 @@
+{
+  "name": "edustack-video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node bits for the edustack-video Claude plugin (brief-collector UI server).",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "brief-server": "node skills/brief-collector/server/server.mjs"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,20 @@
+{
+  "_source": "Exported from Edustack Supabase generation_defaults (is_active=true) on 2026-05-17.",
+  "_note": "Per-kind, per-tier default models. Plugin maps these into <output>/.config/models.yaml at setup.",
+
+  "image": {
+    "low":    { "provider": "openai", "model": "gpt-image-2" },
+    "medium": { "provider": "openai", "model": "gpt-image-2" },
+    "high":   { "provider": "openai", "model": "gpt-image-2" }
+  },
+  "video": {
+    "low":    { "provider": "fal", "model": "fal-ai/bytedance/seedance/v1.5/pro/image-to-video" },
+    "medium": { "provider": "fal", "model": "fal-ai/bytedance/seedance/v1.5/pro/image-to-video" },
+    "high":   { "provider": "fal", "model": "fal-ai/veo3.1/fast/image-to-video" }
+  },
+  "vo": {
+    "low":    { "model": "eleven_flash_v2_5" },
+    "medium": { "model": "eleven_multilingual_v2" },
+    "high":   { "model": "eleven_multilingual_v2" }
+  }
+}

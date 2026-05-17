@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>edustack-video · new run</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main>
+    <h1>New video run</h1>
+    <p class="sub">Fill this in, hit Submit, then switch back to Claude.</p>
+    <form id="brief" novalidate>
+      <label>Topic
+        <textarea name="topic" rows="3" required placeholder="How photosynthesis works"></textarea>
+      </label>
+
+      <div class="row">
+        <label>Class level
+          <select name="class_level" data-options="class_level"></select>
+        </label>
+        <label>Language
+          <select name="language" data-options="language"></select>
+        </label>
+        <label>Aspect
+          <select name="aspect" data-options="aspect"></select>
+        </label>
+      </div>
+
+      <div class="row">
+        <label>Style
+          <select name="style" data-options="style"></select>
+        </label>
+        <label>Voice
+          <select name="voice_id" data-options="voice_id"></select>
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>Script</legend>
+        <label class="inline"><input type="radio" name="script_mode" value="standard" checked /> Standard (original, fits duration)</label>
+        <label class="inline"><input type="radio" name="script_mode" value="word_to_word" /> Word-for-word (from chapter)</label>
+
+        <div data-show-when="script_mode=standard">
+          <label>Duration (seconds)
+            <select name="duration_seconds" data-options="duration_seconds"></select>
+          </label>
+        </div>
+        <div data-show-when="script_mode=word_to_word">
+          <label>Chapter source (PDF, text file, or URL)
+            <input type="file" name="chapter_file" accept=".pdf,.txt,.md" />
+            <textarea name="chapter_text" rows="3" placeholder="…or paste the chapter text here"></textarea>
+            <input type="url" name="chapter_url" placeholder="…or paste a URL" />
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Characters</legend>
+        <label class="inline"><input type="radio" name="character_mode" value="human" checked /> Human (1–2 characters; generate sheet)</label>
+        <label class="inline"><input type="radio" name="character_mode" value="abstract" /> Abstract (stylized; generate reference)</label>
+        <label class="inline"><input type="radio" name="character_mode" value="none" /> None (3+ chars or crowds; description block only)</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Images</legend>
+        <label class="inline"><input type="radio" name="image_mode" value="per_keyframe" checked /> Per keyframe (Nano Banana 2, recommended)</label>
+        <label class="inline"><input type="radio" name="image_mode" value="storyboard_panel" /> Single panel sheet (gpt-image-2, sliced)</label>
+      </fieldset>
+
+      <div class="row">
+        <label>Ambient
+          <select name="ambient_category" data-options="ambient_category"></select>
+        </label>
+        <label class="inline"><input type="checkbox" name="subtitles_enabled" checked /> Subtitles</label>
+        <label class="inline"><input type="checkbox" name="annotations_enabled" /> Annotations</label>
+      </div>
+
+      <label>Notes (optional)
+        <textarea name="notes" rows="3" placeholder="Stylistic guidance, tone, references"></textarea>
+      </label>
+
+      <button type="submit">Save brief</button>
+      <p id="status" class="status" aria-live="polite"></p>
+    </form>
+  </main>
+  <script src="/static/form.js" type="module"></script>
+</body>
+</html>

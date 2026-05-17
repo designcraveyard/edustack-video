@@ -1,0 +1,46 @@
+{
+  "name": "edustack-video",
+  "version": "0.1.0",
+  "description": "Educational explainer video pipeline plugin. fal.ai + ElevenLabs, 5-phase generation with 4 chat-driven review gates, MoviePy stitching, and VPS observability.",
+  "homepage": "https://github.com/designcraveyard/edustack-video",
+  "license": "MIT",
+  "commands": [
+    "commands/create-video.md",
+    "commands/create-video-setup.md",
+    "commands/create-video-resume.md",
+    "commands/create-video-regen.md",
+    "commands/create-video-support.md",
+    "commands/plugin-update.md",
+    "commands/plugin-info.md",
+    "commands/plugin-rollback.md"
+  ],
+  "skills": [
+    "skills/orchestrator",
+    "skills/setup",
+    "skills/brief-collector",
+    "skills/script-writer",
+    "skills/vo-generator",
+    "skills/character-sheet-generator",
+    "skills/storyboard-generator",
+    "skills/clip-generator",
+    "skills/stitcher"
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/ship-chat.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/ship-chat.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

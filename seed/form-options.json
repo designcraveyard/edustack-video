@@ -1,0 +1,71 @@
+{
+  "_source": "Exported from Edustack Supabase generate_form_options (org_id 00000000-0000-4000-a000-00000000ce21, is_active=true) on 2026-05-17.",
+  "_loader_note": "Brief UI maps these to <select> dropdowns. Default-selected option is the one with is_default=true.",
+
+  "ambient": [
+    {"value": "None",   "label": "None",   "sort_order": 1, "is_default": true},
+    {"value": "Forest", "label": "Forest", "sort_order": 2},
+    {"value": "Rain",   "label": "Rain",   "sort_order": 3},
+    {"value": "Lab",    "label": "Lab",    "sort_order": 4},
+    {"value": "Ocean",  "label": "Ocean",  "sort_order": 5},
+    {"value": "City",   "label": "City",   "sort_order": 6}
+  ],
+
+  "aspect": [
+    {"value": "16:9", "label": "Horizontal · 16:9", "sort_order": 1, "is_default": true},
+    {"value": "9:16", "label": "Vertical · 9:16",   "sort_order": 2}
+  ],
+
+  "budget_tier": [
+    {"value": "low",    "label": "Low Budget",    "sort_order": 1},
+    {"value": "medium", "label": "Medium Budget", "sort_order": 2, "is_default": true},
+    {"value": "high",   "label": "High Budget",   "sort_order": 3}
+  ],
+
+  "character_mode": [
+    {"value": "human",    "label": "Human",    "sort_order": 1},
+    {"value": "abstract", "label": "Abstract", "sort_order": 2, "is_default": true},
+    {"value": "none",     "label": "None",     "sort_order": 3}
+  ],
+
+  "duration_seconds": [
+    {"value": 30,  "label": "30s",   "sort_order": 1},
+    {"value": 60,  "label": "1min",  "sort_order": 2, "is_default": true},
+    {"value": 90,  "label": "1.5min","sort_order": 3},
+    {"value": 120, "label": "2min",  "sort_order": 4}
+  ],
+
+  "image_provider": [
+    {"value": "openai",   "label": "OpenAI",   "sort_order": 1, "is_default": true},
+    {"value": "gemini",   "label": "Gemini",   "sort_order": 2},
+    {"value": "seeddream","label": "Seeddream","sort_order": 3}
+  ],
+
+  "language": [
+    {"value": "English",  "label": "English",  "sort_order": 1, "is_default": true},
+    {"value": "Hindi",    "label": "Hindi",    "sort_order": 2},
+    {"value": "Hinglish", "label": "Hinglish", "sort_order": 3},
+    {"value": "Tamil",    "label": "Tamil",    "sort_order": 4},
+    {"value": "Bengali",  "label": "Bengali",  "sort_order": 5},
+    {"value": "Marathi",  "label": "Marathi",  "sort_order": 6}
+  ],
+
+  "quality": [
+    {"value": "low",     "label": "Low",     "subtext": "Faster runs, simpler output, cheapest.",         "sort_order": 1},
+    {"value": "optimal", "label": "Optimal", "subtext": "Ideal for most lessons. Balanced cost.",          "sort_order": 2, "is_default": true},
+    {"value": "best",    "label": "Best",    "subtext": "Highest fidelity for complex topics. Most expensive.", "sort_order": 3}
+  ],
+
+  "style": [
+    {"value": "Pixar",      "label": "Pixar",      "sort_order": 1},
+    {"value": "Clay",       "label": "Clay",       "sort_order": 2},
+    {"value": "2D Flat",    "label": "2D Flat",    "sort_order": 3, "is_default": true},
+    {"value": "Doodle",     "label": "Doodle",     "sort_order": 4},
+    {"value": "Watercolour","label": "Watercolour","sort_order": 5},
+    {"value": "Photoreal",  "label": "Photoreal",  "sort_order": 6}
+  ],
+
+  "voice_id": [
+    {"value": "21m00Tcm4TlvDq8ikWAM", "label": "Rachel (en, calm)"}
+  ]
+}

@@ -1,0 +1,49 @@
+# Default per-stage model picks. Copy this to <output>/.config/models.yaml at setup.
+# Users override per-key after install.
+#
+# Image sizes derive from brief.aspect at runtime — see `aspect_sizes` below.
+# Scripts read `aspect_sizes[brief.aspect]` for storyboard_panel / per_keyframe.
+# Only character_sheet stays 1:1 because it's a reference grid, not a video frame.
+
+aspect_sizes:
+  "16:9":
+    storyboard_panel: 1920x1080    # one wide panel; slicer crops per beat
+    per_keyframe:     1920x1080
+  "9:16":
+    storyboard_panel: 1080x1920
+    per_keyframe:     1080x1920
+  "1:1":
+    storyboard_panel: 1080x1080
+    per_keyframe:     1080x1080
+
+storyboard_panel:
+  model: fal-ai/gpt-image-2
+  # size: derived from aspect_sizes[brief.aspect].storyboard_panel
+  # For multi-beat sheets we keep the SINGLE-PANEL render size above and ask
+  # gpt-image-2 to draw an NxM grid INSIDE that frame (so the slicer carves cells
+  # of the right aspect). N rows × M cols computed at runtime from beat count
+  # and brief.aspect (wider aspects favour more cols; 9:16 favours more rows).
+
+per_keyframe:
+  model: fal-ai/nano-banana-2
+  # size: derived from aspect_sizes[brief.aspect].per_keyframe
+
+character_sheet:
+  model: fal-ai/nano-banana-2
+  size: 1024x1024                  # 1:1 by design — reference grid, not a frame
+
+video_i2v:
+  model: fal-ai/bytedance/seedance/v1.5/pro/image-to-video
+  default_duration_s: 5
+  # Seedance accepts the keyframe's aspect; no size override needed.
+
+vision_analysis:
+  endpoint: fal-ai/any-llm
+  provider: openrouter
+  model: google/gemini-2.5-pro
+
+vo:
+  provider: elevenlabs
+  default_voice_id: 21m00Tcm4TlvDq8ikWAM
+  model_id: eleven_multilingual_v2
+  output_format: mp3_44100_192
