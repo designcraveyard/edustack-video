@@ -1,0 +1,149 @@
+# CLAUDE.md — `edustack-video` workspace memory
+
+This file orients Claude Code (and future maintainers) when working in this repo. Read it before touching anything non-trivial.
+
+---
+
+## What this is
+
+`edustack-video` is a **Claude Code plugin** that generates educational explainer videos through a 5-phase pipeline (script → VO → characters → storyboard → clips → stitch) with 4 chat-driven review gates.
+
+The plugin lives in this repo and is installed by end users via `claude plugin add https://github.com/designcraveyard/edustack-video`. Updates are pulled manually via `/plugin-update`.
+
+It is **not** a library, not an app, not a service. It is a directory of Markdown, Python, Node, and YAML that Claude Code loads and executes.
+
+---
+
+## Repository map
+
+```
+edustack-video/
+├── plugin.json             # declares commands, skills, hooks — single source of truth
+├── commands/               # 8 slash commands; each routes to a skill
+├── skills/                 # 9 skills with SKILL.md + per-skill references/
+├── scripts/                # Python phase scripts + scripts/lib/ shared helpers
+├── skills/brief-collector/server/  # Node stdlib HTTP server (no Express)
+├── vps/                    # FastAPI observability sink + Caddy + Docker
+├── hooks/ship-chat.sh      # PostToolUse + Stop hook (chat transcript shipping)
+├── seed/                   # Exported defaults + porting source for Edustack prompts
+└── CHANGELOG.md            # human-readable, drives /plugin-update output
+```
+
+---
+
+## Cross-file invariants — read before editing
+
+These are not enforced by any linter. Break them and the plugin silently misbehaves.
+
+1. **`plugin.json` lists everything.** When you add a command, skill, or hook, edit `plugin.json` too.
+2. **A skill is its directory.** `skills/X/SKILL.md` is mandatory; `references/*.md` are loaded by Claude only when the SKILL.md links to them via `@references/...`.
+3. **Image aspect derives from `brief.aspect`.** Never hardcode 16:9 in storyboard or clip code. Read `<output>/.config/models.yaml > aspect_sizes[brief.aspect]`. Character sheets are the only intentional exception (always 1:1).
+4. **VPS observability is best-effort.** `scripts/lib/vps_logger.py` MUST NOT raise on failure — fall back to `<run-dir>/logs/local.jsonl`. The pipeline never blocks on the VPS.
+5. **Keys never leave the user's machine.** `<output>/.config/{fal,elevenlabs}.key` are read by local Python only. The VPS sees metadata refs (paths + sha256), not artifacts.
+6. **Form field names must match `brief.json` schema** in [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md). The Edustack web platform reads the same shape — drift breaks cross-port.
+7. **Gates are chat-only.** No web UI. Surfaced via clickable file paths in the chat message; user replies `approve` or `regen <target>: <comment>`.
+
+---
+
+## Architecture decisions (locked)
+
+| Area | Decision | Why |
+|---|---|---|
+| Image + video + vision | fal.ai only | Single key, single retry surface |
+| VO | ElevenLabs direct (not via fal) | Need word-level timestamps for stitcher |
+| Vision model | Gemini 2.5 Pro via `fal-ai/any-llm` → OpenRouter | Pro materially reduces drift false-negatives vs Flash; cost is rounding-error |
+| Stitching | MoviePy + ffmpeg local | Continuity with edu-vid-gen-cloud; full control over transitions |
+| VPS role | Observability sink only | Never sees keys, never runs phase scripts |
+| Brief UI | Localhost Node stdlib HTTP, random port | Zero deps, exits on submit |
+| Update model | `git pull` (fast-forward only) from public GitHub | Fully manual via `/plugin-update`; no auto-check |
+| Character modes | `human` / `abstract` / `none` | `none` skips Phase 3a and uses prompt-driven consistency block |
+| Image modes | `storyboard_panel` (gpt-image-2 sheet, sliced) / `per_keyframe` (Nano Banana 2) | User picks in brief; defaults to per_keyframe |
+
+---
+
+## How Claude should think about tasks here
+
+### Adding a new phase or skill
+1. Read [skills/orchestrator/SKILL.md](skills/orchestrator/SKILL.md) first — the orchestrator owns phase ordering and gate routing.
+2. Create `skills/<new-skill>/SKILL.md` + `references/*.md`. Use progressive disclosure: SKILL.md is short, references are loaded on demand.
+3. Add the skill to `plugin.json`'s `skills[]`.
+4. If it's a new phase, update orchestrator's phase routing table.
+5. If it adds a brief field, also update [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md) AND the form server's `index.html`/`form.js`.
+
+### Touching a Python script
+- `scripts/lib/` is shared. Phase scripts (`phase_*.py`) consume it.
+- All external API calls go through `fal_client.py` or `elevenlabs_client.py` — never raw HTTP elsewhere. Both wrap retry + logging.
+- All state mutations go through `run_state.RunState`. Never write `run.json` directly.
+
+### Touching the brief UI
+- The HTML form server has zero npm deps on purpose. Don't add Express or React.
+- Untrusted browser input: a PreToolUse hook flags `innerHTML` usage. Use `textContent` or `appendChild`-based DOM construction.
+
+### Touching the VPS
+- The FastAPI service is auth-gated by bearer tokens minted at `POST /users`.
+- JSONL on disk, partitioned by date + stream. Don't add a DB.
+- Caddy handles TLS automatically via the `eduplugin.birdzeye.in` A record.
+
+---
+
+## Workflow conventions
+
+### Commits
+Use Conventional Commits prefixes (`feat:`, `fix:`, `chore:`, `docs:`). Body explains *why*. Sign with co-author trailer when assisted by Claude. The body of the commit drives `/plugin-update`'s changelog summary if you also update `CHANGELOG.md`.
+
+### Versioning
+Bump `plugin.json.version` in the same commit as user-visible behavior changes. CHANGELOG entry mandatory for any release commit.
+
+### Dependencies
+- **Python deps**: edit `requirements.txt`, run `uv pip sync` against `<output>/.venv`. The `/plugin-update` command auto-runs this for users on update.
+- **Node deps**: avoid. The brief server uses Node stdlib only.
+
+### Testing
+No automated tests yet. The Verification section of the original implementation plan (see `~/.claude/plans/check-these-2-folders-glistening-stallman.md` if you have it) lists 14 manual end-to-end checks. Add tests opportunistically; don't refactor for testability prematurely.
+
+---
+
+## Where things live (quick reference)
+
+| You want to… | Open this |
+|---|---|
+| Add or change a slash command | [commands/](commands/) + [plugin.json](plugin.json) |
+| Tune what a phase does | `skills/<phase>/SKILL.md` + its `references/*.md` |
+| Change retry behavior | [scripts/lib/fal_client.py](scripts/lib/fal_client.py), [scripts/lib/elevenlabs_client.py](scripts/lib/elevenlabs_client.py) |
+| Change the brief form | [skills/brief-collector/server/public/](skills/brief-collector/server/public/) + [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md) |
+| Change a default model | [seed/models.yaml](seed/models.yaml) (user overrides in `<output>/.config/models.yaml`) |
+| Change VPS endpoints | [vps/app/main.py](vps/app/main.py) — update client in [scripts/lib/vps_logger.py](scripts/lib/vps_logger.py) in lockstep |
+| Change Claude chat shipping | [hooks/ship-chat.sh](hooks/ship-chat.sh) + the consent prompt in [skills/setup/SKILL.md](skills/setup/SKILL.md) |
+| Re-export Edustack seed data | Use the `Supabase-Edustack` MCP server (see `seed/form-options.json` for the source query) |
+
+---
+
+## Don't do
+
+- Don't add a web UI for review gates. They are chat-only on purpose.
+- Don't centralize state on the VPS. The VPS is observability; the source of truth is `<run-dir>/run.json` on the user's disk.
+- Don't add a second image or video provider. Single-provider is the simplification we want.
+- Don't add a database. JSONL on disk is sufficient for the VPS's life.
+- Don't write skill descriptions starting with "This skill does X" — they activate poorly. Use trigger phrases that match user intent.
+- Don't hardcode `https://eduplugin.birdzeye.in` outside `seed/models.yaml`-style defaults. Users may bring their own VPS.
+
+---
+
+## Out of scope (intentionally deferred)
+
+- Multi-part video series
+- Batch generation
+- Google Drive sync (edu-vid-gen-cloud's pattern; we use local + VPS)
+- Multi-org / multi-user
+- Hosting phase scripts on the VPS (planned v2; abstraction is in `vps_logger.py`)
+
+---
+
+## Lineage
+
+This plugin combines patterns from two predecessors. Neither repo is edited; both remain as references:
+
+- `~/Documents/GitHub/edustack` — Next.js + Supabase web platform. Source of the prompt library (`seed/prompts/`), brief schema, gate model.
+- `~/Documents/GitHub/edu-vid-gen-cloud` — first-gen Claude plugin. Source of `scripts/lib/_api-errors.md`, transitions reference, MoviePy stitcher patterns, audio-tags reference.
+
+The implementation plan that produced this scaffold is at `~/.claude/plans/check-these-2-folders-glistening-stallman.md`.
