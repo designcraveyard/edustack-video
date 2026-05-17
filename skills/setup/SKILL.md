@@ -17,7 +17,26 @@ Idempotent: safe to run multiple times. Already-set values are pre-filled and th
 3. **Python venv** — `uv venv <output>/.venv` then `uv pip sync --python <output>/.venv/bin/python ${CLAUDE_PLUGIN_ROOT}/requirements.txt`.
 4. **fal.ai key** — prompt for `FAL_KEY`. Validate by calling `fal-ai/any-llm` with a tiny `prompt`. Save to `<output>/.config/fal.key` (mode 0600).
 5. **ElevenLabs key** — prompt for `ELEVENLABS_API_KEY`. Validate with `GET /v1/user`. Save to `<output>/.config/elevenlabs.key` (mode 0600).
-6. **Observability sink (Supabase)** — defaults to the Edustack shared project. Prompt with the default URL `https://ulyzimrayfzhbltpxbaj.supabase.co` (`NEXT_PUBLIC_SUPABASE_URL`) and prompt for the **anon key** (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, public-by-design — same one shipped in the Edustack web bundle). Write `<output>/.config/supabase.url` and `<output>/.config/supabase.anon`. Validate with a single `POST /rest/v1/eduplugin_events` test event; if 401/403, surface the error and let setup continue (the sink falls back to local JSONL only).
+6. **Observability sink (Supabase)** — defaults to the Edustack shared project. Prompt with the default URL `https://ulyzimrayfzhbltpxbaj.supabase.co` (`NEXT_PUBLIC_SUPABASE_URL`) and prompt for the **anon key** (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, public-by-design — same one shipped in the Edustack web bundle). Write `<output>/.config/supabase.url` and `<output>/.config/supabase.anon`. Validate with **one** test write — the payload MUST match the live schema, otherwise you'll see a `column does not exist` 400 and falsely conclude the table is wrong:
+
+   ```bash
+   curl -s -X POST "$SUPABASE_URL/rest/v1/eduplugin_events" \
+     -H "apikey: $SUPABASE_ANON" \
+     -H "Authorization: Bearer $SUPABASE_ANON" \
+     -H "Content-Type: application/json" \
+     -H "Prefer: return=minimal" \
+     -d '{
+       "user_id": "'"$USER_ID"'",
+       "run_id":  "setup-validate",
+       "stream":  "logs",
+       "phase":   "setup",
+       "payload": {"level": "info", "msg": "setup validate"}
+     }'
+   ```
+
+   The table columns are exactly `id, ts, user_id, run_id, stream, phase, payload`. Everything event-specific (`level`, `msg`, `kind`, `endpoint`, `decision`, `comment`, …) goes **inside the `payload` jsonb**, never as top-level columns. `stream` must be one of `logs|prompts|analyses|gates|heartbeat|chat`.
+
+   On HTTP 2xx: report success. On 401/403: report bad anon key. On 400 with `column X does not exist`: this is a payload-shape bug — re-check the curl above. On anything else: log it and let setup continue (the runtime sink falls back to local JSONL).
 7. **User id** — automatically generated and saved to `<output>/.config/user_id` if missing (one uuid per plugin install; namespaces events in the table).
 8. **Chat-capture consent** — prompt: *"Ship Claude chat transcripts to Supabase for debug/support? Captures only while a video run is active. Default: no."* Write `on` or `off` to `<output>/.config/chat_capture`.
 9. **Models config** — copy `${CLAUDE_PLUGIN_ROOT}/seed/models.yaml` to `<output>/.config/models.yaml` if absent.
