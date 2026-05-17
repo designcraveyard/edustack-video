@@ -70,7 +70,23 @@ class RunPaths:
         return self.analysis_dir / f"beat_{beat_id:02d}.json"
 
     def clip(self, clip_id: int) -> Path:
+        """Canonical zero-padded clip path."""
         return self.clips_dir / f"clip_{clip_id:02d}.mp4"
+
+    def find_clip(self, clip_id: int) -> Path | None:
+        """Locate a clip on disk whether it was saved zero-padded
+        (`clip_01.mp4`, canonical) or non-padded (`clip_1.mp4`, occasionally
+        produced by ad-hoc orchestration). Returns the first existing path
+        or None.
+        """
+        candidates = [
+            self.clips_dir / f"clip_{clip_id:02d}.mp4",
+            self.clips_dir / f"clip_{clip_id}.mp4",
+        ]
+        for p in candidates:
+            if p.is_file():
+                return p
+        return None
 
     def clip_analysis(self, clip_id: int) -> Path:
         return self.clips_dir / f"clip_{clip_id:02d}_analysis.json"

@@ -2,6 +2,21 @@
 
 Generated from `vo_timeline.json` by `scripts/make_subtitles.py`.
 
+## Language ↔ script policy
+
+VO narration is rendered in **native script** (Devanagari, Tamil, Bengali) so ElevenLabs phonemizes correctly. Subtitles, however, are **transliterated to Latin** so learners and Hinglish viewers can read them. Transliteration happens per word inside the chunker (`scripts/make_subtitles.chunk_words`) so timing alignment to the audio is preserved.
+
+| Language | VO narration | Subtitle text | Transliteration target |
+|---|---|---|---|
+| English | Latin | Latin | — (no change) |
+| Hindi | Devanagari | Latin | ITRANS (e.g. "नमस्ते" → "namaste") |
+| Hinglish | Devanagari + English | Latin | ITRANS per word; English words unchanged |
+| Marathi | Devanagari | Latin | ITRANS |
+| Tamil | Tamil script | Latin | IAST |
+| Bengali | Bengali script | Latin | IAST |
+
+Implementation: `scripts/lib/transliterate.to_latin(text, language)`. Uses the `indic-transliteration` package; falls back to a built-in Devanagari → ASCII table if the dep is missing.
+
 ## Chunking rules
 
 - Max 7 words OR 3 seconds per line, whichever comes first.

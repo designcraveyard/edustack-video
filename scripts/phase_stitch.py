@@ -38,6 +38,22 @@ def choose_transition(this_motion: str, next_motion: str | None) -> dict:
     return {"kind": "cut", "duration_s": 0.0}
 
 
+def _beat_duration_ms(beat: dict) -> int:
+    """Return beat duration robustly. Prefer explicit duration_ms; otherwise
+    derive from end_ms - start_ms; otherwise default to 5000 (5s)."""
+    if isinstance(beat.get("duration_ms"), (int, float)):
+        return int(beat["duration_ms"])
+    s = beat.get("start_ms")
+    e = beat.get("end_ms")
+    if isinstance(s, (int, float)) and isinstance(e, (int, float)) and e > s:
+        return int(e - s)
+    # Accept seconds-shape fallback too.
+    s, e = beat.get("start"), beat.get("end")
+    if isinstance(s, (int, float)) and isinstance(e, (int, float)) and e > s:
+        return int((e - s) * 1000)
+    return 5000
+
+
 def build_plan(rp: RunPaths, brief: dict) -> dict:
     timeline = json.loads(rp.vo_timeline.read_text())
     beats = timeline.get("beats") or []
@@ -51,26 +67,35 @@ def build_plan(rp: RunPaths, brief: dict) -> dict:
 
     plan_clips = []
     for i, b in enumerate(beats):
-        clip = rp.clip(b["id"])
-        if not clip.is_file():
+        # Locate the clip whether it was saved zero-padded or not.
+        clip = rp.find_clip(b["id"])
+        if not clip:
             continue
         next_motion = (analyses.get(beats[i + 1]["id"]) if i + 1 < len(beats) else {}).get("motion_intensity") if (i + 1) < len(beats) else None
         this_motion = analyses.get(b["id"], {}).get("motion_intensity")
+        target_ms = _beat_duration_ms(b)
         plan_clips.append({
             "clip_id": b["id"],
             "src": str(clip),
             "in_ms": 0,
-            "out_ms": b["duration_ms"],
-            "target_ms": b["duration_ms"],
+            "out_ms": target_ms,
+            "target_ms": target_ms,
             "transition_out": choose_transition(this_motion or "medium", next_motion),
         })
 
+    total_ms = timeline.get("total_duration_ms")
+    if not total_ms:
+        # Compute from beats if missing.
+        total_ms = sum(c["target_ms"] for c in plan_clips) or 0
+
     return {
-        "total_duration_ms": timeline.get("total_duration_ms", 0),
+        "total_duration_ms": int(total_ms),
         "aspect": brief.get("aspect", "16:9"),
         "clips": plan_clips,
         "audio": {
             "vo": {"src": str(rp.vo_mp3), "level_lufs": -16},
+            "clip_mix": {"keep_clip_audio": True, "gain": 0.15,
+                         "note": "Each clip's native SFX is mixed under VO at -16dB."},
             "ambient": {"category": brief.get("ambient_category", "none"),
                         "level_lufs": -24, "duck_during_vo": True},
         },
@@ -87,22 +112,32 @@ def _aspect_size(aspect: str) -> tuple[int, int]:
 
 
 def compose(plan: dict, rp: RunPaths, brief: dict) -> Path:
-    """Compose final.mp4 via MoviePy 2.x. Returns the output path."""
+    """Compose final.mp4 via MoviePy 2.x. Returns the output path.
+
+    Audio mix: native clip audio is preserved and attenuated under the VO so
+    individual scene sound effects remain audible. Mix levels are taken from
+    plan["audio"]["clip_mix"]["gain"] (default 0.15 = ~-16 dB).
+    """
     from moviepy import (VideoFileClip, AudioFileClip, CompositeAudioClip,
                          concatenate_videoclips)
 
     out_w, out_h = _aspect_size(plan["aspect"])
     target_total_s = plan["total_duration_ms"] / 1000.0
+    clip_mix = (plan.get("audio") or {}).get("clip_mix") or {}
+    keep_clip_audio = bool(clip_mix.get("keep_clip_audio", True))
+    clip_gain = float(clip_mix.get("gain", 0.15))
 
     video_segments = []
     for c in plan["clips"]:
-        src = VideoFileClip(c["src"]).without_audio()
+        # Preserve the clip's native audio — the i2v model often bakes in
+        # SFX or ambient that gives each scene its own sonic identity.
+        src = VideoFileClip(c["src"])
+        if not keep_clip_audio:
+            src = src.without_audio()
         target_s = c["target_ms"] / 1000.0
-        # Retime when clip duration drifts >1% from the beat's VO duration
         if abs(src.duration - target_s) / max(target_s, 0.01) > 0.01:
             factor = src.duration / target_s
             src = src.with_speed_scaled(factor)
-        # Resize to canvas aspect (letterbox can be added later if needed)
         src = src.resized(new_size=(out_w, out_h))
         video_segments.append(src)
     if not video_segments:
@@ -112,9 +147,20 @@ def compose(plan: dict, rp: RunPaths, brief: dict) -> Path:
     if video.duration > target_total_s:
         video = video.subclipped(0, target_total_s)
 
-    vo = AudioFileClip(str(rp.vo_mp3))
-    audio = CompositeAudioClip([vo])
-    video = video.with_audio(audio)
+    # Audio: VO on top, clip audio attenuated underneath.
+    audio_tracks = []
+    if keep_clip_audio and video.audio is not None:
+        try:
+            audio_tracks.append(video.audio.with_volume_scaled(clip_gain))
+        except AttributeError:
+            # Older MoviePy 2.x exposed volumex; try that as a fallback.
+            try:
+                audio_tracks.append(video.audio.volumex(clip_gain))  # type: ignore[attr-defined]
+            except Exception:
+                audio_tracks.append(video.audio)
+    audio_tracks.append(AudioFileClip(str(rp.vo_mp3)))
+    composite_audio = CompositeAudioClip(audio_tracks)
+    video = video.with_audio(composite_audio)
 
     out_path = rp.final
     video.write_videofile(
