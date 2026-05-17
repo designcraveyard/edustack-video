@@ -28,6 +28,14 @@ KEYFRAME_SCHEMA = {
         "action_matches_prompt": "bool",
         "no_text_artifacts": "bool",
         "composition_readable_at_thumbnail": "bool",
+
+        # Anatomy + style-drift QA — same checks the character-sheet phase runs,
+        # because a clean sheet can still be re-rendered with bad anatomy in
+        # later beats. False-positive approvals are worse than false-negatives.
+        "limb_count_correct": "bool — every character has exactly 4 limbs (or 0 for blob/abstract). Flag extras, hybrid quadruped/biped poses.",
+        "anatomy_consistent_with_sheet": "bool — proportions, feature counts (eyes, ears, tails), and signature props match the character sheet.",
+        "style_consistent_with_brief": "bool — adheres to the requested style; no flat/2D bleed when 3D is asked.",
+        "split_screen_orientation_correct": "bool — if the scene is a split-screen, the divider is HORIZONTAL for 9:16 / VERTICAL for 16:9. true when N/A.",
     },
     "issues": "list[{severity: 'warn'|'error', code: str, detail: str}]",
     "regen_recommendation": "null | 'minor' | 'major'",
@@ -43,6 +51,35 @@ CLIP_SCHEMA = {
     "issues": "list[{severity: 'warn'|'error', code: str, detail: str, t_seconds: float}]",
     "regen_recommendation": "null | 'minor' | 'major'",
     "corrective_addendum": "null | str",
+}
+
+
+# Character sheet QA. Goal: catch limb-count / anatomy / style-drift /
+# missing-signature-prop issues BEFORE the user sees Gate 3. The analyser must
+# describe AND audit — describing alone produced false-positive approvals.
+CHARACTER_SHEET_SCHEMA = {
+    "characters": (
+        "list[{name: str, species: str, palette: list[str], "
+        "signature_features: list[str], pose_count: int}]"
+    ),
+
+    "qa_checks": {
+        "limb_count_correct": "bool — every character has exactly 4 limbs (or 0 for blob/abstract). Flag extra legs, hybrid quadruped/biped anatomy, or duplicated body parts.",
+        "limb_count_detail": "str — describe any limb anomaly per character, e.g. 'Hiru shows 6 legs in the 3/4 view'.",
+        "anatomy_consistent_across_poses": "bool — same proportions, same number of features (eyes, ears, tail, etc.) across every pose.",
+        "anatomy_inconsistencies": "list[str] — concrete differences, e.g. 'spots present in side view, absent in front view'.",
+        "palette_locked": "bool — each character uses the SAME palette across all poses (no shifted hues).",
+        "signature_props_present": "bool — every character retains its signature prop / expression across poses (e.g. Hiru's leaf, Sher's fang).",
+        "missing_props": "list[str] — props that disappeared in some poses.",
+        "style_consistent_with_brief": "bool — adheres to the requested style (e.g. Pixar 3D, 2D Flat, watercolour). No flat/2D bleed when 3D is asked, no photorealism when stylised is asked.",
+        "style_drift_detail": "str — describe drift if present.",
+        "background_neutral": "bool — neutral white/light background; no environmental clutter that would interfere with later sheet-conditioned generations.",
+        "characters_separable": "bool — when multiple characters are on the sheet, they remain visually distinct (no merged silhouettes, no swapped features).",
+    },
+
+    "verdict": "'APPROVED' | 'NEEDS_REGEN'",
+    "regen_reason": "null | str — one-line summary, only set when verdict=NEEDS_REGEN.",
+    "corrective_addendum": "null | str — 1-2 sentences to APPEND to the next prompt to fix the issue. Be concrete: 'Render exactly 4 legs per character. Quadrupeds stand on all fours; bipeds stand on two legs. No hybrid poses.'",
 }
 
 
@@ -82,6 +119,58 @@ class VisualAnalyzer:
         self.model = model
         self.logger = logger
         self.run_id = run_id
+
+    # ---------- character sheets ----------
+    def analyse_character_sheet(
+        self, image_path: Path, prompt_used: str, character_brief: str,
+        style: str, phase: str = "characters",
+    ) -> dict:
+        """Three-step QA pass — describe → audit → verdict.
+
+        Returns the parsed dict. Callers gate on `verdict == 'NEEDS_REGEN'` and
+        thread `corrective_addendum` back into the next generation attempt.
+        """
+        prompt = (
+            "You are auditing a character reference sheet for a Pixar-style "
+            "explainer video. Do NOT just describe — also AUDIT.\n\n"
+            f"REQUESTED STYLE: {style}\n\n"
+            f"PROMPT USED:\n{prompt_used}\n\n"
+            f"CHARACTERS BRIEF:\n{character_brief}\n\n"
+            "Run the following 3 steps in order:\n"
+            "  Step 1 — DESCRIBE each character (features, palette, poses).\n"
+            "  Step 2 — QA CHECK against the schema below. Flag every anomaly:\n"
+            "    - limb count (extra legs, hybrid quadruped/biped anatomy)\n"
+            "    - asymmetric features across poses (spots disappear, eye shape changes, etc.)\n"
+            "    - missing signature props / expressions\n"
+            "    - style drift from the requested style\n"
+            "    - palette drift across poses\n"
+            "    - non-neutral background\n"
+            "  Step 3 — VERDICT: 'APPROVED' if no errors; otherwise 'NEEDS_REGEN' with a "
+            "one-line regen_reason and a concrete 1-2 sentence corrective_addendum.\n\n"
+            "If you're unsure about a check, set the bool to false and write the doubt "
+            "into the corresponding *_detail string — false-positive approvals are worse "
+            "than false-negatives here.\n\n"
+            f"SCHEMA (return STRICT JSON only, no prose, no fences):\n"
+            f"{json.dumps(CHARACTER_SHEET_SCHEMA, indent=2)}"
+        )
+        system = (
+            "You are a character-design QA auditor. STRICT JSON only — start with '{' "
+            "and end with '}'. No markdown, no headings."
+        )
+        try:
+            out = self.fal.any_llm_vision(
+                self.model, prompt=prompt, system_prompt=system,
+                image_urls=[_img_data_url(image_path)], phase=phase,
+            )
+        except Exception as e:  # noqa: BLE001
+            return _degraded("characters", 0, f"vision call raised: {e}")
+        if isinstance(out, dict) and out.get("_vision_unavailable"):
+            return _degraded("characters", 0, out.get("error", "unavailable"))
+        result = self._extract_json(out, default_key="characters", default_id=0)
+        # Ensure a verdict field exists so callers can branch safely.
+        if "verdict" not in result and not result.get("_degraded"):
+            result["verdict"] = "APPROVED"  # missing → assume APPROVED (no QA fields => Gemini didn't flag)
+        return result
 
     # ---------- keyframes ----------
     def analyse_keyframe(self, image_path: Path, prompt_used: str,

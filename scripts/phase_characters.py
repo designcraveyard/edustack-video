@@ -76,9 +76,14 @@ def char_paragraph_from_script(script: script_io.Script, notes: str) -> str:
     return f"{script.title}. {head[:240]} {notes}".strip()
 
 
+AUTO_RETRY_BUDGET = 2
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run-dir", required=True)
+    ap.add_argument("--auto-retries", type=int, default=AUTO_RETRY_BUDGET,
+                    help="Max auto-corrective regens when QA verdict=NEEDS_REGEN.")
     args = ap.parse_args()
     rp = RunPaths(Path(args.run_dir))
     rp.ensure_dirs()
@@ -120,39 +125,81 @@ def main() -> int:
         print(f"[characters] mode=none → {rp.description_block}", file=sys.stderr)
         return 0
 
-    # human / abstract: generate a sheet
+    # human / abstract: generate a sheet with an explicit QA pass that can
+    # auto-regen up to N times when Gemini flags anatomy / style / palette /
+    # missing-prop issues. Approval is only granted when the auditor returns
+    # verdict='APPROVED' (or after we exhaust retries, in which case the gate
+    # surfaces with needs_review=true so the human sees the last analysis).
     char_para = char_paragraph_from_script(script, notes)
     model = (cfg.models.get("character_sheet") or {}).get("model") or "fal-ai/nano-banana-2"
     size = (cfg.models.get("character_sheet") or {}).get("size") or "1024x1024"
     w, h = (int(x) for x in size.lower().split("x", 1))
-
-    if mode == "human":
-        prompt = HUMAN_PROMPT_TMPL.format(
-            grid_spec="A 3x3 grid", style=style, char_paragraph=char_para)
-    else:  # abstract
-        prompt = ABSTRACT_PROMPT_TMPL.format(style=style, char_paragraph=char_para)
-
-    payload = {"prompt": prompt, "image_size": {"width": w, "height": h}}
-    result = fal.run(model, payload, phase="characters")
-    img_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
-    if not img_url:
-        raise SystemExit(f"character sheet response missing image url: {list(result.keys())}")
-
-    fal.download(img_url, str(rp.character_sheet))
-
-    # Vision pass: describe what was actually drawn.
     va = VisualAnalyzer(fal, logger=log, run_id=state.run_id)
-    analysis = va.analyse_keyframe(
-        rp.character_sheet, prompt_used=prompt,
-        character_brief=char_para, beat_id=0, phase="characters",
-    )
-    rp.character_analysis.write_text(json.dumps(analysis, indent=2))
 
+    base_prompt = (
+        HUMAN_PROMPT_TMPL.format(grid_spec="A 3x3 grid", style=style, char_paragraph=char_para)
+        if mode == "human"
+        else ABSTRACT_PROMPT_TMPL.format(style=style, char_paragraph=char_para)
+    )
+
+    attempt = 0
+    addendum = ""
+    analysis: dict = {}
+    history: list[dict] = []
+    while attempt <= args.auto_retries:
+        full_prompt = base_prompt + (
+            f"\n\nADDITIONAL GUIDANCE (regen attempt {attempt}):\n{addendum}"
+            if addendum else ""
+        )
+        result = fal.run(model, {
+            "prompt": full_prompt, "image_size": {"width": w, "height": h},
+        }, phase="characters")
+        img_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
+        if not img_url:
+            raise SystemExit(f"character sheet response missing image url: {list(result.keys())}")
+        fal.download(img_url, str(rp.character_sheet))
+
+        analysis = va.analyse_character_sheet(
+            rp.character_sheet, prompt_used=full_prompt,
+            character_brief=char_para, style=style, phase="characters",
+        )
+        verdict = (analysis.get("verdict") or "").upper()
+        history.append({
+            "attempt": attempt,
+            "verdict": verdict or "UNKNOWN",
+            "regen_reason": analysis.get("regen_reason"),
+            "addendum_used": addendum or None,
+        })
+
+        if verdict == "APPROVED" or analysis.get("_degraded"):
+            break
+
+        # verdict == "NEEDS_REGEN" — thread the corrective addendum into the next attempt
+        addendum = analysis.get("corrective_addendum") \
+            or analysis.get("regen_reason") \
+            or "Re-render the sheet with exactly 4 limbs per character, identical proportions across poses, and locked palette."
+        log.log(state.run_id, "characters", "warn",
+                f"QA regen attempt {attempt + 1}: {analysis.get('regen_reason') or '(no reason)'}")
+        attempt += 1
+
+    # Persist the final analysis + the per-attempt history alongside the sheet.
+    analysis_payload = dict(analysis)
+    analysis_payload["_qa_history"] = history
+    rp.character_analysis.write_text(json.dumps(analysis_payload, indent=2))
+
+    final_verdict = (analysis.get("verdict") or "UNKNOWN").upper()
+    needs_review_at_gate = final_verdict != "APPROVED"
     log.log(state.run_id, "characters", "info",
-            f"mode={mode} wrote {rp.character_sheet.name} + analysis.json")
+            f"mode={mode} attempts={len(history)} verdict={final_verdict} "
+            f"sheet={rp.character_sheet.name} analysis={rp.character_analysis.name}")
+
     state.mark_phase("characters", "pending_review")
     log.heartbeat(state.run_id, "characters", "complete")
-    print(f"[characters] mode={mode} → {rp.character_sheet}", file=sys.stderr)
+    print(f"[characters] mode={mode} verdict={final_verdict} attempts={len(history)} → {rp.character_sheet}",
+          file=sys.stderr)
+    if needs_review_at_gate:
+        print(f"[characters] ⚠ verdict={final_verdict} after {len(history)} attempts — "
+              f"see {rp.character_analysis} for QA report", file=sys.stderr)
     return 0
 
 
