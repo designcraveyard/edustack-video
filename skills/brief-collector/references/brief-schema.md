@@ -35,3 +35,33 @@ Mirrors the Edustack `runs.brief` JSONB column so projects can be cross-ported b
 ## Seed values
 
 Dropdown values come from `seed/form-options.json` (lifted from Edustack `generate_form_options` table). Defaults come from `seed/generation-defaults.json`.
+
+## `book` (optional)
+
+When present and `book.page_count_target > 0`, the orchestrator runs Phase B1–B3 after the video branch completes. The Edustack web platform must mirror this shape exactly when porting.
+
+```json
+{
+  "book": {
+    "page_count_target": 12,
+    "templates": ["split-layout", "scattered-spots", "vignette-on-page"],
+    "voice": "storybook_narrator",
+    "deliverable": {
+      "format": "png_rgba",
+      "canvas_portrait": "A4",
+      "canvas_landscape": "A3",
+      "dpi": 300
+    }
+  }
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `page_count_target` | int 0–12 | `0` skips book phases. `1..12` = exact page count. |
+| `templates` | string[] 2–4 | Subset of: `full-bleed-with-text-zone`, `vignette-on-page`, `split-layout`, `scattered-spots`, `full-spread-no-text`, `illustrated-border`, `character-text-pocket`, `connected-infographic`, `spread-scene-plus-spots`. |
+| `voice` | enum | `storybook_narrator` \| `factual_calm` \| `playful_rhyming`. |
+| `deliverable.format` | const | `png_rgba` (v1). |
+| `deliverable.canvas_portrait` | const | `A4` (2480×3508 @ 300 DPI). |
+| `deliverable.canvas_landscape` | const | `A3` (4961×3508 @ 300 DPI). |
+| `deliverable.dpi` | int | `300` (v1). |
