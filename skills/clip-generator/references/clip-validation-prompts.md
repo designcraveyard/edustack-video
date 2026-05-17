@@ -1,127 +1,81 @@
-# Validation Reference
+# Clip validation prompts — Claude-authored, frame-by-frame
 
-Per-clip validation, final video validation, and checkpoint gates. Loaded on demand from Phases 4 and 5.
+Per-clip QA uses **Claude-authored** validation prompts, not a hardcoded Python template. Before `phase_clips.py` generates a clip, the clip-generator skill writes one file per beat at `<run-dir>/clips/clip_<NN>.validation.txt`. That file is read verbatim by `scripts/lib/visual_analyzer.analyse_clip()` and passed to `fal-ai/openrouter/router/video` (Gemini 2.5 Pro multimodal) along with the video itself.
 
----
+## Why Claude authors the prompt
 
-## validate-clip.py — Per-Clip Validation
+A static Python template can ask "is character drift present?" but it doesn't know *which* features matter for *this* beat. The skill knows:
 
-Runs automatically after each clip generation (also enforced by post-tool hook). Checks both technical specs and visual-audio sync.
+- the exact narration sentence the clip illustrates
+- the storyboard keyframe (what should be on-screen at t=0)
+- the character sheet (palette, props, anatomy locks)
+- the beat's `duration_ms` (how many ticks to articulate)
+- the script's `aspect` (split-screen orientation rule)
 
-### Usage
+So Claude produces a per-clip prompt that articulates the intended motion at second-level granularity and lists checks tailored to *this* beat. The validator gets a target, not a generic prompt.
 
-```bash
-python3 __PLUGIN_DIR__/scripts/validate-clip.py \
-  --clip "{OUTPUT_DIR}/clips/clip-{NN}.mp4" \
-  --clip-num {NN} \
-  --timeline "{OUTPUT_DIR}/audio/timeline.json" \
-  --output-dir "{OUTPUT_DIR}" \
-  [--model gemini-2.5-flash] \
-  [--skip-gemini]
+## Output file
+
+```
+<run-dir>/clips/clip_<NN>.validation.txt
 ```
 
-### What ffprobe Checks
+One file per clip. Written **before** `phase_clips.py` generates that clip. Plain text — no JSON, no fences. The Python runner appends the strict-JSON schema tail automatically if it's not already in the body.
 
-| Check | Pass criteria | Notes |
-|-------|--------------|-------|
-| Video duration | Within 0.5s of timeline clip duration | Veo occasionally produces slightly different lengths |
-| Audio stream exists | Has at least one audio track | Clips without audio cause compositor errors |
-| Resolution | Matches expected aspect ratio | 16:9 or 9:16 |
-| Codec | H.264 video, AAC audio | Ensures compatibility |
+## Meta-template
 
-### Overflow Detection
+Author the file in this shape. The bracketed bits are what you fill in per beat.
 
-| Overflow | Severity | Action |
-|----------|----------|--------|
-| < 0.3s | INFO | Natural hold, no action needed |
-| 0.3 - 1.5s | WARN | Compositor will auto-apply Ken Burns zoom |
-| > 1.5s | ERROR | Need Veo TC or clip regeneration |
+```
+CLIP_ID: <NN>
+BEAT_LABEL: <e.g. hook | mechanism | recap>
+DURATION_S: <e.g. 4.2>
+ASPECT: <16:9 | 9:16 | 1:1>
 
-### What Gemini Checks (unless --skip-gemini)
+CHARACTERS PRESENT IN THIS CLIP
+- <name>: <species, palette, signature prop, expected pose at t=0>
+- ...
 
-Extracts 5 evenly-spaced frames from the clip and sends to Gemini for visual analysis:
+INTENDED MOTION (frame-by-frame articulation)
+Articulate what should happen at each tick from 0 → DURATION_S. One bullet per ~1 second.
+- 0.0–1.0s: <subject> <verb> <object/direction>; <camera>; <expected expression>.
+- 1.0–2.0s: <continued action>; <prop state>; <palette / lighting>.
+- ...
 
-| Dimension | Score range | What it evaluates |
-|-----------|------------|-------------------|
-| **VO sync** | 1-10 | Do visuals match what's being narrated at each timestamp? |
-| **Text contamination** | pass/fail | Any unwanted text, labels, or words in frames? |
-| **Style consistency** | 1-10 | Does clip match the declared visual style? |
-| **Character consistency** | 1-10 | Does character match description? (skipped if no characters) |
-| **Animation quality** | 1-10 | Smooth motion, no artifacts, no jitter? |
+QA CHECKS (audit every tick; flag any failure)
+1. Character identity: each named character keeps the same palette, anatomy, and signature prop from t=0 to t=DURATION_S.
+2. Limb count: exactly 4 limbs per quadruped, 2 per biped. Flag hybrid poses (e.g. quadruped standing on hind legs only if explicitly intended).
+3. Style: stays inside <brief.style>. Flag flat/2D bleed if 3D was asked, photorealism if stylised, etc.
+4. Motion sanity: motion direction matches the intended articulation above. No teleports, no jarring scene changes mid-clip.
+5. Composition: subject readable at thumbnail size; no text/captions/logos overlaid.
+6. Split-screen orientation (if the scene is a comparison):
+   - 16:9 → vertical divider, left | right
+   - 9:16 → horizontal divider, top / bottom (NEVER vertical for 9:16)
+   - 1:1 → top / bottom preferred
+7. Continuity to next clip: end state should be consistent with the start of clip <NN+1> if a hand-off was planned in the storyboard.
 
-### Sync Scoring Rubric
-
-| Score | Criteria |
-|-------|----------|
-| 9-10 | Every frame matches narrated content. Key visual beats land within 0.5s of spoken words. |
-| 7-8 | Most frames match. One beat may be early/late by ~1s. Overall coherent. |
-| 5-6 | General theme matches but specific beats misaligned 1-2s. Viewer might notice. |
-| 3-4 | Visual and narration tell different stories for 2+ seconds. Confusing. |
-| 1-2 | Visual is completely unrelated to narration. Wrong scene entirely. |
-
-### Gate Logic
-
-- All scores >= 7 and no text contamination: **PASS**
-- Any score < 7 or text contamination: **FAIL** — pauses pipeline, alerts operator
-
----
-
-## validate-final.py — Final Video Validation
-
-Runs on the composited final video. Replaces manual junction analysis from v1.
-
-### Usage
-
-```bash
-python3 __PLUGIN_DIR__/scripts/validate-final.py \
-  --video "{OUTPUT_DIR}/final.mp4" \
-  --timeline "{OUTPUT_DIR}/audio/timeline.json" \
-  --output-dir "{OUTPUT_DIR}"
+VERDICT
+Approve only if every check passes. Otherwise set regen_recommendation to 'minor' (cosmetic, fixable in one re-prompt) or 'major' (structural; needs new keyframe or new beat plan) and include a 1–2 sentence corrective_addendum that names the exact fix.
 ```
 
-### What Gemini Checks
+## What the Python runner does automatically
 
-Extracts frames at each clip boundary plus mid-clip samples. Evaluates:
+After reading the file, `analyse_clip()`:
 
-| Dimension | Score | What it evaluates |
-|-----------|-------|-------------------|
-| **Overall VO sync** | 1-10 | Average sync across all clip boundaries |
-| **Junction quality** | per-junction | CLEAN / MINOR / JARRING for each clip boundary |
-| **Style consistency** | 1-10 | Uniform style across entire video |
-| **Character consistency** | 1-10 | Character looks the same throughout |
-| **Narrative flow** | 1-10 | Story progresses logically, no jarring scene jumps |
-| **ship_ready** | yes/no | Overall: ready to deliver? |
+1. Uploads the clip to fal so the router can stream the full video.
+2. Sends the prompt + video to `fal-ai/openrouter/router/video` (Gemini 2.5 Pro).
+3. Appends the `CLIP_SCHEMA` JSON if the body doesn't already mention it.
+4. Saves the parsed JSON to `clips/clip_<NN>_analysis.json`.
+5. On router failure, falls back to the still-image contact-sheet path with the same prompt + a note that this is a fallback.
 
-### Gate Logic
+## Auto-regen loop
 
-- `ship_ready = yes` and average score >= 8: **SHIP**
-- Otherwise: **HOLD** — presents per-junction scores, waits for human decision
+Each `regen_recommendation: 'major'` triggers a regen of the clip (up to `--auto-retries 2`). You may rewrite `clip_<NN>.validation.txt` between attempts to tighten checks — e.g. add a 0.0–0.3s sub-tick if the prior verdict was about an early-frame issue.
 
----
+## Anti-patterns
 
-## checkpoint.py — Phase Gates
-
-Verifies that each pipeline phase completed successfully before allowing the next phase.
-
-### Usage
-
-```bash
-python3 __PLUGIN_DIR__/scripts/checkpoint.py \
-  --phase {N} \
-  --output-dir "{OUTPUT_DIR}"
-```
-
-### Phase Definitions
-
-| Phase | Gate checks |
-|-------|------------|
-| **2** | `script.md` exists, keyframe table has correct clip count, narration word counts within range |
-| **2.5** | `audio/full-vo.mp3` exists, `audio/timeline.json` valid, all clip durations in [4,6,8]s range, slice files exist |
-| **3** | All `images/frame-{NN}.jpg` exist (count matches timeline), compressed `-small.jpg` versions exist |
-| **4** | All `clips/clip-{NN}.mp4` exist (count matches timeline), each passed validate-clip.py |
-| **5** | `final.mp4` exists, passed validate-final.py, duration within 0.5s of VO end time |
-
-### Gate Behavior
-
-- **PASS**: Prints checkmark, proceeds
-- **FAIL**: Prints what's missing/wrong, blocks progression, alerts operator with `say` command
+- ❌ Generic prompts ("watch the video and audit it"). Use the meta-template; articulate motion.
+- ❌ Tick spacing > 2s. Even short clips need at least 2 ticks.
+- ❌ Skipping the QA CHECKS section. The check list is what makes the auditor not approve a 6-limb clip.
+- ❌ Embedding strict JSON instructions in your prompt body — the Python runner appends them. Don't duplicate.
+- ❌ Forgetting to write the file before generation. The runner will fall back to a generic template and quality drops.

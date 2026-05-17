@@ -103,9 +103,8 @@ class FalClient:
 
     def any_llm_vision(self, model: str, prompt: str, image_urls: list[str],
                        system_prompt: str | None = None, phase: str = "?", **extra) -> dict:
-        """Vision-capable LLM call. Tries fal-ai/any-llm/vision first; if the
-        endpoint doesn't exist or fails, returns a degraded result so callers
-        can keep moving (vision is quality-improvement, not pipeline-critical).
+        """Image-vision LLM call via fal-ai/any-llm/vision (1 image per call).
+        Graceful-degrades on failure (returns `_vision_unavailable=True`).
         """
         payload: dict = {"model": model, "prompt": prompt,
                          "image_urls": image_urls, **extra}
@@ -121,6 +120,39 @@ class FalClient:
                 except Exception:
                     pass
             return {"_vision_unavailable": True, "error": str(e)[:300]}
+
+    def any_llm_router_video(self, model: str, prompt: str, video_url: str,
+                             system_prompt: str | None = None,
+                             phase: str = "?", **extra) -> dict:
+        """Video-native LLM call via `fal-ai/openrouter/router/video`.
+
+        Sends the whole video URL (not sampled frames) and routes through
+        OpenRouter to a model that handles video natively (e.g. Gemini 2.5
+        Pro multimodal). Use this in preference to the image-vision
+        contact-sheet path for richer temporal continuity QA on clips.
+
+        Graceful-degrades on failure with `_video_vision_unavailable=True`
+        so callers can fall back to the still-image contact-sheet path.
+        """
+        payload: dict = {"model": model, "prompt": prompt,
+                         "video_url": video_url, **extra}
+        if system_prompt:
+            payload["system_prompt"] = system_prompt
+        try:
+            return self.run("fal-ai/openrouter/router/video", payload, phase=phase)
+        except FalError as e:
+            if self.logger:
+                try:
+                    self.logger.log(self.run_id, phase, "warn",
+                                    f"video vision unavailable: {str(e)[:200]}")
+                except Exception:
+                    pass
+            return {"_video_vision_unavailable": True, "error": str(e)[:300]}
+
+    def upload_file(self, path: str) -> str:
+        """Thin wrapper around fal_client.upload_file. Returns a fal-hosted URL."""
+        import fal_client  # type: ignore
+        return fal_client.upload_file(path)
 
     def download(self, url: str, dest: str) -> str:
         """Download a fal-hosted artifact (image/video) to disk."""

@@ -127,8 +127,23 @@ def main() -> int:
                 raise SystemExit(f"clip response missing video url: {list(result.keys())}")
             fal.download(video_url, str(clip_path))
 
-            ana = va.analyse_clip(clip_path, prompt_used=prompt,
-                                  character_brief=chars_brief, clip_id=b.id)
+            # If the clip-generator skill pre-authored a frame-by-frame
+            # validation prompt for this clip, use it verbatim. Otherwise
+            # fall back to the analyser's generic template.
+            validation_prompt_path = rp.clip_validation_prompt(b.id)
+            validation_prompt = (
+                validation_prompt_path.read_text(encoding="utf-8")
+                if validation_prompt_path.is_file() else None
+            )
+            if validation_prompt:
+                log.log(state.run_id, "clips", "info",
+                        f"clip {b.id} QA using Claude-authored validation prompt "
+                        f"({len(validation_prompt)} chars)")
+            ana = va.analyse_clip(
+                clip_path, prompt_used=prompt,
+                character_brief=chars_brief, clip_id=b.id,
+                validation_prompt=validation_prompt,
+            )
             if ana.get("regen_recommendation") in (None, "minor"):
                 break
             addendum = ana.get("corrective_addendum") or "Improve character consistency and reduce drift."

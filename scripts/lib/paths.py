@@ -75,6 +75,12 @@ class RunPaths:
     def clip_analysis(self, clip_id: int) -> Path:
         return self.clips_dir / f"clip_{clip_id:02d}_analysis.json"
 
+    def clip_validation_prompt(self, clip_id: int) -> Path:
+        """Claude-authored, per-clip frame-by-frame validation prompt. Read by
+        phase_clips and passed verbatim to visual_analyzer.analyse_clip. When
+        missing, analyse_clip falls back to a generic template."""
+        return self.clips_dir / f"clip_{clip_id:02d}.validation.txt"
+
     def ensure_dirs(self) -> None:
         for d in (self.logs_dir, self.prompts_dir, self.audio_dir,
                   self.characters_dir, self.storyboard_dir, self.keyframes_dir,

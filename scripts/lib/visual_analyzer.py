@@ -240,40 +240,129 @@ class VisualAnalyzer:
         canvas.save(out_path, "JPEG", quality=82)
         return out_path
 
+    def _default_clip_prompt(self, clip_id: int, prompt_used: str,
+                             character_brief: str) -> str:
+        """Fallback template when Claude has NOT pre-authored a validation
+        prompt for this clip. Generic; the Claude-authored variant should
+        be a frame-by-frame articulation of the intended action and
+        explicit per-tick checks. See clip-validation-prompts.md."""
+        return (
+            f"CLIP_ID: {clip_id}\n\n"
+            f"PROMPT USED FOR GENERATION:\n{prompt_used}\n\n"
+            f"CHARACTERS:\n{character_brief}\n\n"
+            "Watch the attached video end-to-end. Frame by frame, articulate "
+            "what actually happens, then audit it for continuity.\n"
+            "Flag every issue you spot:\n"
+            "  - limb count anomalies (extra legs, hybrid quadruped/biped poses)\n"
+            "  - character drift (palette shift, feature changes, identity swaps)\n"
+            "  - style drift (flat/2D bleed when 3D is asked, photorealism when stylised)\n"
+            "  - jarring scene changes mid-clip\n"
+            "  - missing signature props that were present at clip start\n"
+            "  - text/caption/logo artifacts the prompt forbade\n\n"
+            "Return STRICT JSON only matching:\n"
+            f"{json.dumps(CLIP_SCHEMA, indent=2)}"
+        )
+
     def analyse_clip(self, clip_path: Path, prompt_used: str,
                      character_brief: str, clip_id: int,
-                     fps: float = 1.0, max_frames: int = 8) -> dict:
+                     fps: float = 1.0, max_frames: int = 8,
+                     validation_prompt: str | None = None) -> dict:
+        """Video-native QA via fal-ai/openrouter/router/video.
+
+        - `validation_prompt`, when supplied, is used verbatim. This is the
+          Claude-authored, per-clip frame-by-frame articulation produced by
+          the clip-generator skill (the recommended path).
+        - When `validation_prompt` is None, a generic fallback template runs.
+          Quality is lower because the auditor doesn't know the per-beat
+          intent at the tick level — useful only when the orchestrator
+          couldn't author one.
+
+        Uploads the clip to fal once (so the router can stream the actual
+        video, not sampled frames), then asks Gemini 2.5 Pro to audit. Falls
+        back to a still-image contact-sheet path on any router failure so
+        the pipeline never blocks on QA.
+        """
+        prompt = (validation_prompt or "").strip() or self._default_clip_prompt(
+            clip_id, prompt_used, character_brief,
+        )
+        if validation_prompt and "STRICT JSON" not in prompt and "schema" not in prompt.lower():
+            # Claude wrote the body — make sure the strict-JSON tail is present.
+            prompt = prompt.rstrip() + "\n\nReturn STRICT JSON only matching:\n" + json.dumps(CLIP_SCHEMA, indent=2)
+        system = (
+            "You audit short animated video clips for continuity. "
+            "Output MUST be a single valid JSON object — no headings, no markdown, "
+            "no prose, no code fences. Start with '{' and end with '}'."
+        )
+
+        # Primary path: upload + router/video
+        try:
+            video_url = self.fal.upload_file(str(clip_path))
+        except Exception as e:  # noqa: BLE001
+            return self._analyse_clip_via_contact_sheet(
+                clip_path, prompt, system, clip_id, fps, max_frames,
+                fallback_reason=f"upload failed: {e}",
+            )
+
+        try:
+            out = self.fal.any_llm_router_video(
+                self.model, prompt=prompt, system_prompt=system,
+                video_url=video_url, phase="clips",
+            )
+        except Exception as e:  # noqa: BLE001
+            return self._analyse_clip_via_contact_sheet(
+                clip_path, prompt, system, clip_id, fps, max_frames,
+                fallback_reason=f"router/video raised: {e}",
+            )
+
+        if isinstance(out, dict) and out.get("_video_vision_unavailable"):
+            return self._analyse_clip_via_contact_sheet(
+                clip_path, prompt, system, clip_id, fps, max_frames,
+                fallback_reason=out.get("error", "router_video_unavailable"),
+            )
+
+        parsed = self._extract_json(out, default_key="clip_id", default_id=clip_id)
+        parsed.setdefault("_analyser", "fal-ai/openrouter/router/video")
+        return parsed
+
+    def _analyse_clip_via_contact_sheet(
+        self, clip_path: Path, prompt: str, system: str,
+        clip_id: int, fps: float, max_frames: int,
+        fallback_reason: str,
+    ) -> dict:
+        """Fallback used only when the router/video path errors. Samples
+        ffmpeg frames into a single contact-sheet image (still picture) and
+        calls any-llm/vision. Quality is lower but the pipeline keeps moving.
+        """
         with tempfile.TemporaryDirectory() as td:
             try:
                 frames = self.sample_frames(clip_path, Path(td), fps=fps, max_frames=max_frames)
             except Exception as e:  # noqa: BLE001
-                return _degraded("clip_id", clip_id, f"ffmpeg sample failed: {e}")
+                return _degraded("clip_id", clip_id,
+                                 f"ffmpeg sample failed (after {fallback_reason}): {e}")
             if not frames:
-                return _degraded("clip_id", clip_id, "no_frames_sampled")
+                return _degraded("clip_id", clip_id,
+                                 f"no_frames_sampled (after {fallback_reason})")
             sheet = self._contact_sheet(frames, Path(td) / "sheet.jpg")
-            prompt = (
-                f"CLIP_ID: {clip_id}\n\n"
-                f"PROMPT USED:\n{prompt_used}\n\n"
-                f"CHARACTERS:\n{character_brief}\n\n"
-                f"The attached image is a CONTACT SHEET: {len(frames)} frames sampled at "
-                f"{fps} fps, arranged top-to-bottom, left-to-right.\n\n"
-                f"Return STRICT JSON only matching:\n{json.dumps(CLIP_SCHEMA, indent=2)}"
-            )
-            system = (
-                "You analyse video frame strips for continuity. "
-                "Output MUST be a single valid JSON object — no headings, "
-                "no markdown, no prose, no code fences. Start with '{' and end with '}'."
+            extended_prompt = (
+                f"{prompt}\n\nNOTE: the attached image is a CONTACT SHEET "
+                f"({len(frames)} frames sampled at {fps} fps, top-to-bottom, "
+                f"left-to-right) because the router/video path was unavailable."
             )
             try:
                 out = self.fal.any_llm_vision(
-                    self.model, prompt=prompt, system_prompt=system,
+                    self.model, prompt=extended_prompt, system_prompt=system,
                     image_urls=[_img_data_url(sheet)], phase="clips",
                 )
             except Exception as e:  # noqa: BLE001
-                return _degraded("clip_id", clip_id, f"vision call raised: {e}")
+                return _degraded("clip_id", clip_id,
+                                 f"contact-sheet vision raised: {e}")
         if isinstance(out, dict) and out.get("_vision_unavailable"):
-            return _degraded("clip_id", clip_id, out.get("error", "unavailable"))
-        return self._extract_json(out, default_key="clip_id", default_id=clip_id)
+            return _degraded("clip_id", clip_id,
+                             out.get("error", "vision_unavailable"))
+        parsed = self._extract_json(out, default_key="clip_id", default_id=clip_id)
+        parsed["_analyser"] = "fal-ai/any-llm/vision (contact-sheet fallback)"
+        parsed["_fallback_reason"] = fallback_reason
+        return parsed
 
     # ---------- internal ----------
     def _extract_json(self, fal_output: dict, default_key: str, default_id: int) -> dict:
