@@ -59,6 +59,16 @@ Each gate message in chat **must include**:
 - The exact reply forms accepted: `approve`, `regen <target>: <comment>`.
 - A pointer to `/create-video-regen` if the user wants to invoke regen via slash command.
 
+## Book branch (post-video, optional)
+
+If `brief.book.page_count_target > 0`, after Phase 6 (stitch) completes, run three additional phases serially:
+
+1. **Phase B1 — book-plan** (`scripts/phase_book_plan.py`). Invoke the `book-plan` skill to author the page list and book-voice copy, then run the script to serialize. Surface **Gate B1** in chat with a Markdown summary of `book/plan.json`. Accept `approve` / `regen page N: <comment>` / `regen all`.
+2. **Phase B2 — book-render** (`scripts/phase_book_render.py`). Invoke the `book-render` skill. fal-ai/gpt-image-2 with transparent BG, birefnet/v2 fallback, Gemini visual QA via fal-ai/any-llm/vision. Up to 2 retries per page. Failed pages don't block the rest.
+3. **Phase B3 — book-print-prep** (`scripts/phase_book_print_prep.py`). Pure Pillow, no LLM. Composes per-template onto A4P (2480×3508) or A3L (4961×3508) transparent canvas at 300 DPI.
+
+See `@references/book-routing.md` for the full gate contract and per-page regen path (`/create-book-regen`).
+
 ## What this skill does NOT do
 
 - Does not call fal.ai / ElevenLabs / Gemini. That's the per-phase skill's job.
