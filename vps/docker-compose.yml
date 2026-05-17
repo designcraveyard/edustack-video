@@ -1,8 +1,9 @@
-version: "3.9"
+name: eduplugin
 
 services:
   app:
-    build: ./app
+    build:
+      context: https://github.com/designcraveyard/edustack-video.git#main:vps/app
     container_name: eduplugin-app
     restart: unless-stopped
     environment:
@@ -14,14 +15,14 @@ services:
       - "8000"
 
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: https://github.com/designcraveyard/edustack-video.git#main:vps/caddy
     container_name: eduplugin-caddy
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
