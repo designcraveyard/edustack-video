@@ -67,3 +67,25 @@ vo:
   # Hinglish narration in Devanagari renders correctly.
   model_id: eleven_v3
   output_format: mp3_44100_192
+
+# ── Book mode (Phase B1–B3) ─────────────────────────────────────────────────
+book:
+  illustration:
+    provider: fal
+    model: fal-ai/gpt-image-2
+    # Native gpt-image-2 outputs; book-print-prep upscales to A4P/A3L canvas.
+    native_output_sizes:
+      portrait: "1024x1456"      # 3:4 templates → A4P canvas
+      landscape: "1456x1024"     # 16:9 templates → A3L canvas
+  bg_removal:
+    provider: fal
+    model: fal-ai/birefnet/v2
+  qa:
+    provider: fal
+    endpoint: fal-ai/any-llm/vision    # same path as VisualAnalyzer.analyse_keyframe
+    model: google/gemini-2.5-pro
+    threshold: 4                        # all 4 binary checks must pass
+    max_retries: 2
+  canvas:
+    A4P: { width: 2480, height: 3508, dpi: 300 }    # 210×297mm @ 300 DPI
+    A3L: { width: 4961, height: 3508, dpi: 300 }    # 420×297mm @ 300 DPI
