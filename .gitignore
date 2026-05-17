@@ -13,3 +13,6 @@ runs/
 !skills/**/*.png
 !docs/**/*.png
 .config/
+
+# Runtime marker — populated by .claude/hooks/track-plugin-edits.py, cleared after doc review.
+.claude/.docs-stale

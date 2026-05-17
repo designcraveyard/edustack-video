@@ -139,6 +139,10 @@ No automated tests yet. The Verification section of the original implementation 
 
 ---
 
+## Doc-freshness hook (auto-enforced)
+
+Two repo-local hooks live in [.claude/](.claude/). The Stop hook **blocks completion** any time you edit plugin source without also reviewing CLAUDE.md / docs/. Details: [.claude/README.md](.claude/README.md). Practical impact: when you finish a task that touched anything under `commands/`, `skills/`, `scripts/`, `hooks/`, `vps/`, `seed/`, or `plugin.json`, you must either update the relevant doc or explicitly `rm .claude/.docs-stale` with a one-line reason. No silent drift.
+
 ## Lineage
 
 This plugin combines patterns from two predecessors. Neither repo is edited; both remain as references:
