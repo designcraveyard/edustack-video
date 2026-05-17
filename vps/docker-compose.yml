@@ -2,8 +2,7 @@ name: eduplugin
 
 services:
   app:
-    build:
-      context: https://github.com/designcraveyard/edustack-video.git#main:vps/app
+    image: ghcr.io/designcraveyard/edustack-video-app:latest
     container_name: eduplugin-app
     restart: unless-stopped
     environment:
@@ -15,8 +14,7 @@ services:
       - "8000"
 
   caddy:
-    build:
-      context: https://github.com/designcraveyard/edustack-video.git#main:vps/caddy
+    image: ghcr.io/designcraveyard/edustack-video-caddy:latest
     container_name: eduplugin-caddy
     restart: unless-stopped
     ports:
