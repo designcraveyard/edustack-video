@@ -23,6 +23,19 @@ class FalError(RuntimeError):
     pass
 
 
+def _gpt_image_2_size(size: str) -> str:
+    """gpt-image-2 accepts WxH or named presets. Map our canonical book sizes
+    to presets the model is known to accept; pass other values through verbatim."""
+    canonical = {
+        "1024x1456": "portrait_4_3",
+        "1456x1024": "landscape_4_3",
+        "1024x1024": "square_hd",
+        "1920x1080": "landscape_16_9",
+        "1080x1920": "portrait_16_9",
+    }
+    return canonical.get(size, size)
+
+
 def _classify(exc: Exception) -> str:
     """Decide if an exception is transient (retry) or permanent (raise)."""
     msg = str(exc).lower()
@@ -148,6 +161,43 @@ class FalClient:
                 except Exception:
                     pass
             return {"_video_vision_unavailable": True, "error": str(e)[:300]}
+
+    # ---------- book mode (Phase B2) ----------
+    def gpt_image_2_book_page(
+        self,
+        *,
+        prompt: str,
+        image_urls: list[str] | None = None,
+        size: str = "1024x1456",
+        phase: str = "book-render",
+        num_images: int = 1,
+    ) -> dict:
+        """fal-ai/gpt-image-2 for book pages — requests transparent BG by prompt
+        AND by the `background='transparent'` argument when the model supports it.
+        Refs are capped at 4 (conservative gpt-image-2 limit). Returns the raw
+        fal response; caller extracts {"images":[{"url":...}]}.
+
+        `size` is mapped to the model's accepted preset by `_gpt_image_2_size`.
+        """
+        refs = [u for u in (image_urls or []) if u][:4]
+        payload: dict = {
+            "prompt": prompt,
+            "image_size": _gpt_image_2_size(size),
+            "background": "transparent",
+            "num_images": num_images,
+            "output_format": "png",
+        }
+        if refs:
+            payload["image_urls"] = refs
+        return self.run("fal-ai/gpt-image-2", payload, phase=phase)
+
+    def birefnet_remove_bg(self, *, image_url: str, phase: str = "book-render") -> dict:
+        """fal-ai/birefnet/v2 — produce an RGBA cutout from an image with an
+        opaque background. Used only when `gpt_image_2_book_page`'s output
+        doesn't have a transparent background already."""
+        return self.run("fal-ai/birefnet/v2",
+                        {"image_url": image_url, "output_format": "png"},
+                        phase=phase)
 
     def upload_file(self, path: str) -> str:
         """Thin wrapper around fal_client.upload_file. Returns a fal-hosted URL."""
