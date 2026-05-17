@@ -83,6 +83,22 @@ CHARACTER_SHEET_SCHEMA = {
 }
 
 
+# Book-page QA. Four binary checks, all of which must pass. Used by Phase B2
+# (scripts/phase_book_render.py) to gate retries.
+BOOK_PAGE_SCHEMA = {
+    "page_no": "int",
+    "checks": {
+        "transparent_background": "bool — non-illustration pixels have alpha=0. False if any painted background (sky, paper, color wash).",
+        "no_text_in_image": "bool — no letters, numerals, or text artifacts anywhere in the illustration.",
+        "character_consistency_vs_refs": "bool — characters match the reference sheets in features, proportions, palette, and signature props.",
+        "scene_matches_prompt": "bool — depicted action and setting match the page's scene_prompt.",
+    },
+    "issues": "list[{severity: 'warn'|'error', code: str, detail: str}]",
+    "verdict": "'APPROVED' | 'NEEDS_REGEN'",
+    "corrective_addendum": "null | str — 1 sentence to append on retry.",
+}
+
+
 def _img_data_url(p: Path) -> str:
     b = Path(p).read_bytes()
     ext = Path(p).suffix.lower().lstrip(".") or "png"
@@ -199,6 +215,45 @@ class VisualAnalyzer:
         if isinstance(out, dict) and out.get("_vision_unavailable"):
             return _degraded("beat_id", beat_id, out.get("error", "unavailable"))
         return self._extract_json(out, default_key="beat_id", default_id=beat_id)
+
+    # ---------- book pages ----------
+    def analyse_book_page(
+        self, image_path: Path, prompt_used: str, character_brief: str,
+        page_no: int, scene_prompt: str, phase: str = "book-render",
+    ) -> dict:
+        """Four binary checks: transparent BG, no text, character consistency,
+        scene match. All four must pass; otherwise verdict=NEEDS_REGEN with a
+        corrective_addendum to thread into the next gpt-image-2 attempt."""
+        prompt = (
+            f"PAGE_NO: {page_no}\n\n"
+            f"PROMPT USED:\n{prompt_used}\n\n"
+            f"SCENE PROMPT:\n{scene_prompt}\n\n"
+            f"CHARACTERS:\n{character_brief}\n\n"
+            "INSPECT THE ATTACHED IMAGE. This is a book page intended to be sized "
+            "to A4 Portrait or A3 Landscape with a TRANSPARENT BACKGROUND, no text "
+            "burnt in. Audit four binary checks, ALL of which must pass.\n\n"
+            "If you see ANY painted background (sky, paper texture, color wash), set "
+            "transparent_background=false. If you see ANY letters or numerals, set "
+            "no_text_in_image=false.\n\n"
+            f"Return STRICT JSON only matching this schema:\n{json.dumps(BOOK_PAGE_SCHEMA, indent=2)}"
+        )
+        system = (
+            "You are an illustration QA auditor for a children's book. STRICT JSON only — "
+            "start with '{' and end with '}'. No prose, no markdown."
+        )
+        try:
+            out = self.fal.any_llm_vision(
+                self.model, prompt=prompt, system_prompt=system,
+                image_urls=[_img_data_url(image_path)], phase=phase,
+            )
+        except Exception as e:  # noqa: BLE001
+            return _degraded("page_no", page_no, f"vision call raised: {e}")
+        if isinstance(out, dict) and out.get("_vision_unavailable"):
+            return _degraded("page_no", page_no, out.get("error", "unavailable"))
+        result = self._extract_json(out, default_key="page_no", default_id=page_no)
+        if "verdict" not in result and not result.get("_degraded"):
+            result["verdict"] = "APPROVED"
+        return result
 
     # ---------- clips ----------
     def sample_frames(self, clip_path: Path, out_dir: Path,
