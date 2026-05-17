@@ -42,6 +42,8 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 5. **Keys never leave the user's machine.** `<output>/.config/{fal,elevenlabs}.key` are read by local Python only. The Supabase sink writes metadata refs (paths + sha256, prompt sha) — never raw artifacts and never the API keys.
 6. **Form field names must match `brief.json` schema** in [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md). The Edustack web platform reads the same shape — drift breaks cross-port.
 7. **Gates are chat-only.** No web UI. Surfaced via clickable file paths in the chat message; user replies `approve` or `regen <target>: <comment>`.
+8. **Book pages have their own canvas, not `brief.aspect`.** A4P (2480×3508 @ 300 DPI) for 3:4 templates, A3L (4961×3508 @ 300 DPI) for 16:9 templates. The canonical map lives in [`scripts/lib/book_canvas.RULES`](scripts/lib/book_canvas.py). Do not derive book canvases from `brief.aspect`.
+9. **Book pages are RGBA with transparent BG.** Never burn text into the image. The intended text lives in the sidecar `<run-dir>/book/print/page-NN.txt` and in the `book_voice_copy` field of `book/plan.json`. Phase B2 prompts gpt-image-2 to leave the text zone transparent; the Phase B2 birefnet/v2 fallback cleans up if the model paints a background anyway.
 
 ---
 
@@ -58,6 +60,7 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 | Update model | `git pull` (fast-forward only) from public GitHub | Fully manual via `/plugin-update`; no auto-check |
 | Character modes | `human` / `abstract` / `none` | `none` skips Phase 3a and uses prompt-driven consistency block |
 | Image modes | `storyboard_panel` (gpt-image-2 sheet, sliced) / `per_keyframe` (Nano Banana 2) | User picks in brief; defaults to per_keyframe |
+| Book mode | Optional sibling artifact: 0–12 transparent-BG RGBA PNGs at A4P (2480×3508) or A3L (4961×3508) @ 300 DPI, post-video, picked via `brief.book.page_count_target` | Designers drop into InDesign and convert CMYK at layout time |
 
 ---
 
@@ -74,6 +77,12 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 - `scripts/lib/` is shared. Phase scripts (`phase_*.py`) consume it.
 - All external API calls go through `fal_client.py` or `elevenlabs_client.py` — never raw HTTP elsewhere. Both wrap retry + logging.
 - All state mutations go through `run_state.RunState`. Never write `run.json` directly.
+
+### Touching a book phase
+- Three book phase scripts live alongside the video phase scripts: `scripts/phase_book_plan.py`, `phase_book_render.py`, `phase_book_print_prep.py`. They share `RunState`, `RunPaths`, `FalClient`, and `VisualAnalyzer`.
+- Book pages are RGBA at 300 DPI on a transparent A4P or A3L canvas. **Never burn text into the image.** Text intent lives only in the sidecar `.txt` and the `book_voice_copy` field of `book/plan.json`.
+- The book branch is **serial after video** in v1 — never start a book phase while a video phase is still running. The orchestrator's routing contract is in [skills/orchestrator/references/book-routing.md](skills/orchestrator/references/book-routing.md).
+- Per-template composition rules (position, scale, margin) live in `scripts/lib/book_canvas.RULES`. Change a template's look there, not in `phase_book_print_prep.py`.
 
 ### Touching the brief UI
 - The HTML form server has zero npm deps on purpose. Don't add Express or React.

@@ -2,6 +2,21 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.2.0 — 2026-05-17
+
+### Book mode (post-video, optional)
+
+- **New optional Book output** alongside the explainer video. After the video finishes, a curated 0–12-page picture book renders as **transparent-background RGBA PNGs** sized to A4 Portrait (3:4 templates) or A3 Landscape (16:9 templates) at 300 DPI — drop-in for book designers (InDesign / Affinity / Photoshop).
+- **Brief-collector grows a Book step**: page count 0–12 (0 = skip), book voice (storybook narrator / factual calm / playful rhyming), and a template gallery with 9 layout cards (wireframes + 39 bundled reference images). Pick 2–4 templates; the planner auto-assigns one per page based on scene content.
+- **Three new phases**, registered in `plugin.json`:
+  - **B1 `book-plan`** — curated page list (~60% reused video keyframes + ~40% new book-only scenes), per-page template assignment, book-voice copy rewrite. New chat gate (`Gate B1`).
+  - **B2 `book-render`** — `fal-ai/gpt-image-2` with `background=transparent` + `fal-ai/birefnet/v2` fallback, then Gemini 2.5 Pro visual QA via `fal-ai/any-llm/vision`. Four binary checks (transparent BG, no text, character consistency, scene match); up to 2 retries per page.
+  - **B3 `book-print-prep`** — Pillow-only canvas composer. Per-template positioning + scaling (`scripts/lib/book_canvas.py`), Lanczos resize, auto-level + unsharp mask on RGB channels, alpha preserved, embedded `dpi=(300, 300)`.
+- **New slash command**: `/create-book-regen page-NN` for one-shot per-page regen with optional `--template` / `--scene` / `--copy` overrides.
+- **Provider stack unchanged**: all external calls remain routed through fal.ai. No ImageMagick, no PDF tooling. No new system binaries.
+- **brief.book schema** documented at `skills/brief-collector/references/brief-schema.md` — must be mirrored when porting to the Edustack web platform.
+- **Observability reuses existing six event streams**; no Supabase migration needed. Book phases emit `phase: book-plan|book-render|book-print-prep` events.
+
 ## [Unreleased]
 
 ### Brief UI + VO improvements (2026-05-17 evening)
