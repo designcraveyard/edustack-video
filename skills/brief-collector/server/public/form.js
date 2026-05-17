@@ -289,6 +289,86 @@ async function loadVoicesFor(language) {
 const langSelect = form.querySelector("select[name=language]");
 langSelect.addEventListener("change", () => loadVoicesFor(langSelect.value));
 
+// ── Book step ──────────────────────────────────────────────────────────────
+
+const bookCountEl = document.getElementById("book-page-count");
+const bookExtrasEl = document.getElementById("book-extras");
+const galleryEl = document.getElementById("book-templates-gallery");
+const bookHintEl = document.getElementById("book-templates-hint");
+const selectedTemplates = new Set();
+
+function toggleBookExtras() {
+  const count = parseInt(bookCountEl.value || "0", 10);
+  bookExtrasEl.hidden = count <= 0;
+}
+
+function updateBookHint() {
+  const n = selectedTemplates.size;
+  if (n < 2) bookHintEl.textContent = `Pick at least 2 and at most 4 templates (${n} selected).`;
+  else if (n > 4) bookHintEl.textContent = `Too many. Maximum 4. (${n} selected)`;
+  else bookHintEl.textContent = `${n} selected — ready.`;
+}
+
+async function loadTemplateGallery() {
+  try {
+    const res = await fetch("/static/templates/manifest.json");
+    if (!res.ok) return;
+    const data = await res.json();
+    galleryEl.replaceChildren();
+    for (const t of data.templates) {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.dataset.id = t.id;
+
+      const wf = document.createElement("img");
+      wf.className = "wf";
+      wf.src = `/static/templates/wireframes/${t.wireframe}`;
+      wf.alt = `${t.name} wireframe`;
+      card.appendChild(wf);
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = t.name;
+      card.appendChild(name);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = `${t.aspect} • ${t.canvas} • ~${t.frequency}% • ${(t.bestFor || []).join(", ")}`;
+      card.appendChild(meta);
+
+      const thumbs = document.createElement("div");
+      thumbs.className = "thumbs";
+      for (const r of (t.refs || []).slice(0, 2)) {
+        const img = document.createElement("img");
+        img.src = `/static/templates/refs/${r}`;
+        img.alt = "";
+        thumbs.appendChild(img);
+      }
+      card.appendChild(thumbs);
+
+      card.addEventListener("click", () => {
+        if (selectedTemplates.has(t.id)) {
+          selectedTemplates.delete(t.id);
+          card.classList.remove("selected");
+        } else {
+          if (selectedTemplates.size >= 4) return;
+          selectedTemplates.add(t.id);
+          card.classList.add("selected");
+        }
+        updateBookHint();
+      });
+
+      galleryEl.appendChild(card);
+    }
+  } catch (e) {
+    console.error("template gallery load failed", e);
+  }
+}
+
+bookCountEl.addEventListener("input", toggleBookExtras);
+toggleBookExtras();
+loadTemplateGallery();
+
 // ── Submit ─────────────────────────────────────────────────────────────────
 
 form.addEventListener("submit", async (e) => {
@@ -316,6 +396,21 @@ form.addEventListener("submit", async (e) => {
     voice_name: fd.get("voice_name"),
     notes: fd.get("notes") || "",
   };
+
+  const bookCount = parseInt(bookCountEl.value || "0", 10);
+  if (bookCount > 0) {
+    if (selectedTemplates.size < 2 || selectedTemplates.size > 4) {
+      status.textContent = "Pick 2–4 reference layouts for the book, or set page count to 0.";
+      return;
+    }
+    brief.book = {
+      page_count_target: bookCount,
+      templates: Array.from(selectedTemplates),
+      voice: document.getElementById("book-voice").value || "storybook_narrator",
+      deliverable: { format: "png_rgba", canvas_portrait: "A4", canvas_landscape: "A3", dpi: 300 },
+    };
+  }
+
   try {
     const r = await fetch("/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(brief) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);

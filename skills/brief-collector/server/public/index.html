@@ -98,6 +98,32 @@
         <textarea name="notes" rows="3" placeholder="Stylistic guidance, tone, references"></textarea>
       </label>
 
+      <section id="book-section" class="field-group">
+        <h2>Book (optional)</h2>
+        <p class="hint">Generate a curated set of book illustrations alongside the video. Designers get transparent-BG PNGs sized for A4 Portrait or A3 Landscape print.</p>
+
+        <label>How many book pages?
+          <input type="number" id="book-page-count" name="book_page_count" min="0" max="12" value="0" />
+          <span class="hint">0 = no book. 1–12 = exact page count.</span>
+        </label>
+
+        <div id="book-extras" hidden>
+          <label>Book voice
+            <select id="book-voice" name="book_voice">
+              <option value="storybook_narrator">Storybook narrator</option>
+              <option value="factual_calm">Factual &amp; calm</option>
+              <option value="playful_rhyming">Playful &amp; rhyming</option>
+            </select>
+          </label>
+
+          <fieldset id="book-templates">
+            <legend>Reference layouts (pick 2–4)</legend>
+            <div id="book-templates-gallery" class="gallery"></div>
+            <p class="hint" id="book-templates-hint">Pick at least 2 and at most 4 templates. Claude will assign one per page based on scene content.</p>
+          </fieldset>
+        </div>
+      </section>
+
       <button type="submit">Save brief</button>
       <p id="status" class="status" aria-live="polite"></p>
     </form>

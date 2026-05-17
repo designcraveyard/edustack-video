@@ -124,3 +124,24 @@ button:hover { filter: brightness(1.05); }
 .voice-error {
   margin: 4px 0 0; color: var(--danger); font-size: 11px;
 }
+
+/* ── Book step ─────────────────────────────────────────────────────── */
+#book-section { border-top: 1px solid #e5e5e5; padding-top: 1rem; margin-top: 1rem; }
+#book-section h2 { font-size: 1.1rem; margin: 0 0 0.5rem; }
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 0.5rem;
+}
+.gallery .card {
+  border: 2px solid #ddd; border-radius: 8px; padding: 10px;
+  background: #fff; cursor: pointer; transition: border-color 0.15s, transform 0.05s;
+}
+.gallery .card.selected { border-color: #4a8a5a; background: #f5fbf5; }
+.gallery .card:active { transform: scale(0.98); }
+.gallery .card svg, .gallery .card img.wf { width: 100%; height: auto; display: block; margin-bottom: 6px; max-height: 110px; object-fit: contain; }
+.gallery .card .name { font-weight: 600; font-size: 0.9rem; }
+.gallery .card .meta { font-size: 0.72rem; color: #777; margin-top: 2px; line-height: 1.3; }
+.gallery .card .thumbs { display: flex; gap: 4px; margin-top: 6px; }
+.gallery .card .thumbs img { width: 50%; height: 40px; object-fit: cover; border-radius: 3px; }

@@ -43,6 +43,12 @@ const MIME = {
   ".css": "text/css",
   ".js": "application/javascript",
   ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
 };
 
 // ── ElevenLabs proxy with 5-min in-memory cache, language-aware scoring ──────
