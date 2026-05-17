@@ -132,8 +132,10 @@ def main() -> int:
     # surfaces with needs_review=true so the human sees the last analysis).
     char_para = char_paragraph_from_script(script, notes)
     model = (cfg.models.get("character_sheet") or {}).get("model") or "fal-ai/nano-banana-2"
-    size = (cfg.models.get("character_sheet") or {}).get("size") or "1024x1024"
-    w, h = (int(x) for x in size.lower().split("x", 1))
+    # Character sheet is always 1:1 by design. nano-banana / flux / imagen
+    # reject arbitrary {w,h}; use a preset.
+    from scripts.lib.aspect import fal_image_size
+    image_size = fal_image_size("1:1", model)
     va = VisualAnalyzer(fal, logger=log, run_id=state.run_id)
 
     base_prompt = (
@@ -152,7 +154,7 @@ def main() -> int:
             if addendum else ""
         )
         result = fal.run(model, {
-            "prompt": full_prompt, "image_size": {"width": w, "height": h},
+            "prompt": full_prompt, "image_size": image_size,
         }, phase="characters")
         img_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
         if not img_url:

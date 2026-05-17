@@ -60,6 +60,48 @@ Split-screen scenes (before/after, A vs B, then vs now, contrast pairs) follow a
 
 The same rule applies to clip generation — a beat that's a "still keyframe with subtle motion" must inherit the keyframe's split orientation. The auto-corrective Gemini analysis flags violations as `regen_recommendation: minor` with addendum like *"reorient split to horizontal for 9:16 aspect"*.
 
+## Structured anchors (storyboard.json → clip prompts)
+
+When a scene has multiple labelled elements with a fixed spatial relationship (e.g. *HERBA / leaf-icon on the left, CARNI / meat-icon on the right*), free-form prose in the `visual` hint is not enough — i2v models reliably swap them. Storyboard entries should carry an explicit `anchors` array that `phase_clips.py` reads and bakes into the clip generation prompt.
+
+### Schema
+
+```jsonc
+{
+  "id": 4,
+  "label": "comparison",
+  "prompt": "…",
+  "image_path": "…/beat_04.png",
+  "analysis_path": "…/beat_04.json",
+  "anchors": [
+    {"element": "leaf-icon",         "side": "left",  "label": "HERBA"},
+    {"element": "meat-cut icon",     "side": "right", "label": "CARNI"}
+  ]
+}
+```
+
+- `element` — short concrete description (what the asset is)
+- `side` — one of `left | right | top | bottom | center`
+- `label` — the on-screen text/word that goes WITH that element (optional)
+
+### When to author anchors
+
+- Any beat with two or more nameable elements that share a spatial axis.
+- Any before/after or A-vs-B comparison.
+- Any beat where the visual hint says "X on the left, Y on the right" (even just in prose — promote it to anchors).
+
+### What the runner does with them
+
+`phase_clips.py` builds an `ANCHORS` block prepended to the clip prompt:
+
+```
+ANCHORS (lock these in place for the full clip):
+  - leaf-icon on the LEFT side (label: "HERBA")
+  - meat-cut icon on the RIGHT side (label: "CARNI")
+```
+
+The clip prompt's *SPATIAL ANCHORING* rule forbids swapping sides or detaching labels for the full clip duration. The structured anchors also flow into the validation prompt template so the per-clip QA pass checks for swaps.
+
 ## Anti-pattern checklist
 
 - Do not request "cinematic lens flare" — it produces unreadable thumbnails.

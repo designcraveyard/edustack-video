@@ -143,7 +143,17 @@ STANDARD_SYSTEM = textwrap.dedent("""\
     Strict output format: JSON with keys {title, beats:[{id,label,seconds,narration,visual}]}.
     Beat labels are short tags (hook/setup/mechanism/consequence/recap).
     Each beat is ONE concept, animatable, with verbs and concrete nouns.
-    Sum of seconds must equal the target duration within ±10%.
+
+    DURATION + WORD BUDGET — read carefully, this is the #1 reason runs fail.
+    The TTS engine will not speed up to fit a too-long script. You must size
+    the narration to the target word budget given to you in the user message:
+      - Sum of beat `seconds` MUST equal target_duration_seconds within ±10%.
+      - TOTAL word count across all `narration` fields MUST NOT exceed
+        WORD_BUDGET. Going over means VO will overrun the timeline and
+        clips will be retimed-up at stitch, degrading quality.
+      - If a topic genuinely needs more, REDUCE the number of beats or
+        shorten the recap — do not exceed the budget.
+
     Use class-appropriate vocabulary; do not introduce a term before defining it visually.
 
     SCRIPT (NARRATION) MUST BE IN NATIVE SCRIPT — this is non-negotiable because
@@ -171,16 +181,20 @@ def build_standard(brief: dict, fal: FalClient) -> script_io.Script:
     level = int(brief.get("class_level") or 6)
     style = brief.get("style", "2D Flat")
     topic = brief["topic"]
+    wpm = WORDS_PER_SECOND.get(lang, 2.5)
+    word_budget = int(target * wpm)
 
     user = textwrap.dedent(f"""\
         TOPIC: {topic}
         TARGET DURATION: {target} seconds
+        WORD_BUDGET: {word_budget} words (computed as target × {wpm} words/sec for {lang})
         CLASS LEVEL: {level}
         LANGUAGE: {lang}
         STYLE (visual): {style}
         NOTES: {brief.get('notes') or '(none)'}
 
-        Return STRICT JSON only — no markdown fences, no prose. Five to seven beats.""")
+        Return STRICT JSON only — no markdown fences, no prose. Five to seven beats.
+        Stay AT OR UNDER {word_budget} words total across all narration combined.""")
     out = fal.any_llm(
         "google/gemini-2.5-pro",
         prompt=user, system_prompt=STANDARD_SYSTEM, phase="script",
@@ -235,6 +249,31 @@ def main() -> int:
     else:
         fal = FalClient(cfg.fal_key, logger=log, run_id=state.run_id)
         script = build_standard(brief, fal)
+
+    # Post-generation word-count budget check (warn-only per user policy —
+    # no auto-trim). Catches the case where Gemini ignores the WORD_BUDGET
+    # hint and produces a script that will overrun the VO timeline.
+    target_sec = brief.get("duration_seconds")
+    if target_sec and script.mode == "standard":
+        wpm = WORDS_PER_SECOND.get(script.language, 2.5)
+        budget = int(target_sec * wpm)
+        actual_words = sum(
+            len(re.findall(r"\b[\w'-]+\b", b.narration_plain)) for b in script.beats
+        )
+        overrun_pct = (actual_words - budget) / budget * 100 if budget else 0
+        if overrun_pct > 10:
+            log.log(state.run_id, "script", "warn",
+                    f"word-budget overrun: {actual_words} words vs budget {budget} "
+                    f"({overrun_pct:+.1f}%). VO at {script.language} (~{wpm} wpm) will "
+                    f"exceed the {target_sec}s target. Consider /create-video-regen "
+                    f"script with a shorter target.")
+        elif overrun_pct < -25:
+            log.log(state.run_id, "script", "warn",
+                    f"word-budget undershoot: {actual_words} words vs budget {budget} "
+                    f"({overrun_pct:+.1f}%). Script may be too sparse for the target duration.")
+        else:
+            log.log(state.run_id, "script", "info",
+                    f"word-budget OK: {actual_words} words vs budget {budget} ({overrun_pct:+.1f}%)")
 
     script_io.dump(script, rp.script)
     log.log(state.run_id, "script", "info",

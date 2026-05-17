@@ -24,7 +24,8 @@ Mode A (`storyboard_panel`):
 ## Checklist (TodoWrite)
 
 1. From `vo_timeline.beats`, compute one keyframe per beat.
-2. **Resolve image aspect/size from `brief.aspect`** via `models.yaml > aspect_sizes`. Never assume 16:9. The panel canvas, every sliced keyframe, and every per-keyframe render all use this aspect.
+2. **Resolve image aspect/size from `brief.aspect`** via `scripts.lib.aspect.fal_image_size(aspect, model)`. Returns a preset name (`portrait_16_9` / `landscape_16_9` / `square_hd`) for nano-banana / flux / imagen (which 422 on arbitrary `{width,height}`), or explicit dimensions for gpt-image-2. Never hardcode 16:9.
+3. **Author structured `anchors`** for any beat with two or more labelled elements in a fixed spatial relationship (split-screen, A-vs-B, top/bottom). The clip-generator reads these from `storyboard.json` and bakes spatial constraints into the clip prompt — without anchors, i2v models reliably swap sides (HERBA/CARNI class of bug). See @references/storyboard-prompting.md ▸ "Structured anchors".
 3. Branch on `image_mode`:
    - **Mode A** (`storyboard_panel`):
      - Build a panel prompt requesting an N-cell grid (N = number of beats), 16:9 panel layout, consistent palette, characters from sheet/description.

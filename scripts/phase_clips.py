@@ -33,6 +33,7 @@ CLIP_PROMPT = textwrap.dedent("""\
     BEAT {beat_id} — {label} ({duration_s:.1f}s):
     {narration}
     Visual: {visual}
+    {anchors_block}
 
     CAMERA + MOTION:
     Static medium shot unless the visual hint demands movement. If movement is
@@ -45,11 +46,22 @@ CLIP_PROMPT = textwrap.dedent("""\
                                 NEVER split a 9:16 frame down the middle vertically.
     - 1:1                    : prefer top/bottom.
 
+    SPATIAL ANCHORING (when ANCHORS are listed above):
+    - Each anchor names an element, a side (left | right | top | bottom |
+      center), and the label that goes WITH it. The element MUST appear on
+      the named side from t=0 to t=duration. NEVER swap sides mid-clip.
+    - Labels are anchored to their referent. Do not detach a label from
+      its element. Do not introduce extra labels.
+
     CHARACTERS:
     {chars}
 
     Constraints: no text overlays, no captions, no logos, smooth motion, no
-    sudden cuts within the clip.""")
+    sudden cuts within the clip. NO decorative icons or symbols animating
+    into or out of frame unless explicitly listed in the visual hint or
+    anchors above. Anything that appears at t=0 should still be present at
+    t=duration in the same spatial position (with the camera allowance noted
+    above).""")
 
 
 def main() -> int:
@@ -76,6 +88,33 @@ def main() -> int:
 
     timeline = json.loads(rp.vo_timeline.read_text())
     beats_by_id = {b["id"]: b for b in timeline.get("beats", [])}
+
+    # Load structured anchors from storyboard.json (one entry per beat may
+    # carry an `anchors` list: [{element, side, label}, ...]). When present,
+    # phase_clips bakes them into the clip prompt so left/right or top/bottom
+    # icons stay anchored — avoids the HERBA/CARNI-swap class of bug.
+    storyboard_by_beat: dict[int, dict] = {}
+    if rp.storyboard_json.is_file():
+        try:
+            sb = json.loads(rp.storyboard_json.read_text())
+            for e in (sb.get("beats") or []):
+                storyboard_by_beat[int(e.get("id"))] = e
+        except Exception:
+            pass
+
+    def _anchors_block(beat_id: int) -> str:
+        entry = storyboard_by_beat.get(beat_id) or {}
+        anchors = entry.get("anchors") or []
+        if not anchors:
+            return ""
+        rows = []
+        for a in anchors:
+            element = a.get("element", "?")
+            side = a.get("side", "center")
+            label = a.get("label", "")
+            label_part = f' (label: "{label}")' if label else ""
+            rows.append(f"  - {element} on the {side.upper()} side{label_part}")
+        return "ANCHORS (lock these in place for the full clip):\n" + "\n".join(rows)
 
     fal = FalClient(cfg.fal_key, logger=log, run_id=state.run_id)
     va = VisualAnalyzer(fal, logger=log, run_id=state.run_id)
@@ -106,6 +145,7 @@ def main() -> int:
                 style=style, aspect=aspect, beat_id=b.id, label=b.label,
                 duration_s=duration_s, narration=b.narration_plain,
                 visual=(b.visual or "(none)"), chars=chars_brief,
+                anchors_block=_anchors_block(b.id),
             )
             if addendum:
                 prompt += f"\n\nADDITIONAL GUIDANCE (regen):\n{addendum}"
