@@ -27,6 +27,86 @@ FAL_PRESET_FOR_ASPECT = {
 }
 
 
+def fal_image_payload(
+    aspect: str,
+    model: str | None = None,
+    models_cfg: dict | None = None,
+    stage: str | None = None,
+) -> dict:
+    """Return a dict of size-related params to merge into a fal payload.
+
+    Different fal models accept different parameter shapes — verified
+    against the live fal.ai OpenAPI on 2026-05-17:
+
+      - nano-banana-2: `aspect_ratio` (enum: 21:9, 16:9, 3:2, 4:3, 5:4, 1:1,
+        4:5, 3:4, 2:3, 9:16, 4:1, 1:4, 8:1, 1:8, auto) + `resolution` (enum:
+        0.5K, 1K, 2K, 4K). Does NOT have `image_size`.
+      - gpt-image-2: `image_size` (preset enum OR ImageSize object).
+      - flux/dev, imagen, ideogram: `image_size` (preset enum only).
+      - seedance / video i2v: `resolution` (enum: 480p, 720p, 1080p).
+
+    Override precedence (highest first):
+      1. `models_cfg[stage]._payload` — raw merge-in dict (advanced).
+      2. `models_cfg[stage]` keys matching the model's native shape
+         (e.g. aspect_ratio + resolution for nano-banana, image_size for
+         gpt-image-2).
+      3. Model-based default from `aspect`.
+
+    Returns a dict ready to spread into a fal payload:
+        payload = {"prompt": p, **fal_image_payload("9:16", model, cfg.models, "per_keyframe")}
+    """
+    m = (model or "").lower()
+
+    # 1. Raw override
+    if models_cfg and stage:
+        stage_cfg = models_cfg.get(stage) or {}
+        raw = stage_cfg.get("_payload")
+        if isinstance(raw, dict):
+            return dict(raw)
+
+        # 2. Targeted per-key override for the model's native shape
+        override: dict = {}
+        if "nano-banana" in m:
+            if stage_cfg.get("aspect_ratio"):
+                override["aspect_ratio"] = stage_cfg["aspect_ratio"]
+            if stage_cfg.get("resolution"):
+                override["resolution"] = stage_cfg["resolution"]
+            if override:
+                # Fill any missing field with model-default for the aspect.
+                override.setdefault("aspect_ratio", _nano_banana_aspect(aspect))
+                override.setdefault("resolution", "2K")
+                return override
+        else:
+            if "image_size" in stage_cfg:
+                size = stage_cfg["image_size"]
+                if isinstance(size, str) and size.strip():
+                    return {"image_size": size}
+                if isinstance(size, dict) and "width" in size and "height" in size:
+                    return {"image_size": {"width": int(size["width"]),
+                                            "height": int(size["height"])}}
+
+    # 3. Model-based default
+    if "nano-banana" in m:
+        return {"aspect_ratio": _nano_banana_aspect(aspect), "resolution": "2K"}
+    if "gpt-image" in m:
+        return {"image_size": {
+            "16:9": {"width": 1536, "height": 864},
+            "9:16": {"width": 864, "height": 1536},
+            "1:1":  {"width": 1024, "height": 1024},
+        }.get(aspect, {"width": 1536, "height": 864})}
+    if "flux" in m or "imagen" in m or "ideogram" in m:
+        return {"image_size": FAL_PRESET_FOR_ASPECT.get(aspect, "landscape_16_9")}
+    # Unknown model — assume preset image_size.
+    return {"image_size": FAL_PRESET_FOR_ASPECT.get(aspect, "landscape_16_9")}
+
+
+def _nano_banana_aspect(aspect: str) -> str:
+    """nano-banana-2 accepts the brief.aspect string directly; default to auto."""
+    valid = {"21:9", "16:9", "3:2", "4:3", "5:4", "1:1",
+             "4:5", "3:4", "2:3", "9:16", "4:1", "1:4", "8:1", "1:8"}
+    return aspect if aspect in valid else "auto"
+
+
 def fal_image_size(
     aspect: str,
     model: str | None = None,

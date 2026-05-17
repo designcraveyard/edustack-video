@@ -132,11 +132,12 @@ def main() -> int:
     # surfaces with needs_review=true so the human sees the last analysis).
     char_para = char_paragraph_from_script(script, notes)
     model = (cfg.models.get("character_sheet") or {}).get("model") or "fal-ai/nano-banana-2"
-    # Character sheet is always 1:1 by design. nano-banana / flux / imagen
-    # reject arbitrary {w,h}; use a preset. Stage-level override at
-    # cfg.models["character_sheet"]["image_size"] takes precedence.
-    from scripts.lib.aspect import fal_image_size
-    image_size = fal_image_size("1:1", model, cfg.models, "character_sheet")
+    # Character sheet is always 1:1 by design. fal_image_payload knows which
+    # keys each model accepts (image_size for gpt-image-2/flux, aspect_ratio
+    # + resolution for nano-banana-2). Stage-level overrides at
+    # cfg.models["character_sheet"] take precedence.
+    from scripts.lib.aspect import fal_image_payload
+    size_payload = fal_image_payload("1:1", model, cfg.models, "character_sheet")
     va = VisualAnalyzer(fal, logger=log, run_id=state.run_id)
 
     base_prompt = (
@@ -155,7 +156,7 @@ def main() -> int:
             if addendum else ""
         )
         result = fal.run(model, {
-            "prompt": full_prompt, "image_size": image_size,
+            "prompt": full_prompt, **size_payload,
         }, phase="characters")
         img_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
         if not img_url:

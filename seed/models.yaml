@@ -1,20 +1,21 @@
 # Default per-stage model picks. Copy this to <output>/.config/models.yaml at setup.
 # Users override per-key after install.
 #
-# Image-size resolution order (first match wins, evaluated by
-# scripts.lib.aspect.fal_image_size):
-#   1. <stage>.image_size  — explicit per-stage override, set here or in
-#      <output>/.config/models.yaml. Accepts either a fal preset string
-#      ("portrait_16_9", "landscape_16_9", "square_hd", "portrait_hd",
-#      "landscape_hd", "square") OR an object {width: N, height: N}.
-#      Claude may rewrite this during a run if a specific shot needs a
-#      different preset.
-#   2. Model-based default — nano-banana / flux / imagen / ideogram get the
-#      preset for brief.aspect; gpt-image-2 gets explicit {w,h}.
-#   3. Fallback — landscape_16_9.
+# Image-size resolution path (verified against fal.ai OpenAPI 2026-05-17):
+# different models accept different parameter shapes — fal_image_payload()
+# in scripts/lib/aspect.py emits the right shape per model and merges any
+# overrides set here.
 #
-# `aspect_sizes` below is informational; the canonical sizing path is
-# fal_image_size(). Setting `<stage>.image_size` overrides everything.
+#   nano-banana-2  →  {aspect_ratio: "9:16", resolution: "2K"}
+#                    NOT image_size — schema does not have that field.
+#   gpt-image-2    →  {image_size: "portrait_16_9"} OR {image_size: {width, height}}
+#   flux / imagen  →  {image_size: "portrait_16_9"} (preset enum only)
+#   seedance i2v   →  {resolution: "720p" | "1080p"} (no image_size)
+#
+# Override precedence (highest first):
+#   1. <stage>._payload — raw dict, spread verbatim into the fal payload.
+#   2. <stage> keys matching the model's native shape (the ones below).
+#   3. aspect-derived default from brief.aspect.
 
 aspect_sizes:
   "16:9":
@@ -29,29 +30,31 @@ aspect_sizes:
 
 storyboard_panel:
   model: fal-ai/gpt-image-2
-  # image_size: portrait_16_9        # uncomment to override the default.
-  # image_size: { width: 1536, height: 864 }   # explicit form also accepted.
-  # Default behaviour: aspect-derived from brief.aspect:
-  #   16:9 → {width:1536,height:864}; 9:16 → {width:864,height:1536}; 1:1 → {width:1024,height:1024}.
+  # image_size: portrait_16_9                  # preset string, OR
+  # image_size: { width: 1536, height: 864 }   # explicit dims (multiples of 16, max 3840 edge).
+  # Default (16:9): {width:1536,height:864}. 9:16 → {864,1536}. 1:1 → {1024,1024}.
 
 per_keyframe:
   model: fal-ai/nano-banana-2
-  # image_size: portrait_hd          # uncomment to force a preset (e.g. when
-  #                                    the aspect-derived preset doesn't suit).
-  # Default: 16:9 → landscape_16_9; 9:16 → portrait_16_9; 1:1 → square_hd.
+  # nano-banana-2 uses aspect_ratio + resolution. NOT image_size.
+  # aspect_ratio: "9:16"           # enum: 21:9, 16:9, 3:2, 4:3, 5:4, 1:1, 4:5, 3:4, 2:3, 9:16, 4:1, 1:4, 8:1, 1:8, auto
+  # resolution:   "2K"             # enum: 0.5K, 1K, 2K, 4K  (default 2K — higher fidelity)
+  # If you switch the model to flux/imagen, use image_size instead:
+  # image_size: portrait_16_9
 
 character_sheet:
   model: fal-ai/nano-banana-2
-  # image_size: square_hd            # 1:1 by design — overridable here.
-  size: 1024x1024                    # legacy hint (still respected if image_size absent)
+  # Same model as per_keyframe — same override keys apply.
+  # aspect_ratio: "1:1"
+  # resolution: "2K"
 
 video_i2v:
   model: fal-ai/bytedance/seedance/v1.5/pro/image-to-video
   default_duration_s: 5
-  # Seedance accepts the keyframe's aspect; no size override needed.
+  # resolution: "1080p"            # enum: 480p, 720p, 1080p. Aspect inherited from keyframe.
 
 vision_analysis:
-  endpoint: fal-ai/any-llm
+  endpoint: fal-ai/openrouter/router/video   # video-native QA for clips
   provider: openrouter
   model: google/gemini-2.5-pro
 
@@ -60,7 +63,7 @@ vo:
   default_voice_id: 21m00Tcm4TlvDq8ikWAM
   # ElevenLabs v3 — pinned. Required for multilingual phonemizing (Hinglish in
   # Devanagari, Tamil/Bengali in native scripts) and for audio-tag rendering.
-  # Do NOT downgrade to multilingual_v2 / flash without first re-verifying that
+  # Do NOT downgrade to multilingual_v2 / flash without re-verifying that
   # Hinglish narration in Devanagari renders correctly.
   model_id: eleven_v3
   output_format: mp3_44100_192

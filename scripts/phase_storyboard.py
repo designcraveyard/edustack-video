@@ -23,7 +23,7 @@ from scripts.lib.vps_logger import VPSLogger
 from scripts.lib.paths import RunPaths
 from scripts.lib.fal_client import FalClient
 from scripts.lib.visual_analyzer import VisualAnalyzer
-from scripts.lib.aspect import size_for, grid_for_beats, fal_image_size
+from scripts.lib.aspect import size_for, grid_for_beats, fal_image_payload
 from scripts.lib import script_io
 
 
@@ -83,17 +83,16 @@ PANEL_PROMPT = textwrap.dedent("""\
 """)
 
 
-def per_keyframe_call(fal: FalClient, model: str, prompt: str, image_size,
+def per_keyframe_call(fal: FalClient, model: str, prompt: str, size_payload: dict,
                       ref_image: str | None) -> dict:
-    payload: dict[str, Any] = {"prompt": prompt, "image_size": image_size}
+    payload: dict[str, Any] = {"prompt": prompt, **size_payload}
     if ref_image:
         payload["image_url"] = ref_image  # nano-banana-2 accepts image_url or image_urls
     return fal.run(model, payload, phase="storyboard")
 
 
-def panel_call(fal: FalClient, model: str, prompt: str, image_size) -> dict:
-    return fal.run(model, {"prompt": prompt, "image_size": image_size},
-                   phase="storyboard")
+def panel_call(fal: FalClient, model: str, prompt: str, size_payload: dict) -> dict:
+    return fal.run(model, {"prompt": prompt, **size_payload}, phase="storyboard")
 
 
 def slice_panel(panel_path: Path, rows: int, cols: int, out_dir: Path,
@@ -155,8 +154,8 @@ def main() -> int:
         prompt = PANEL_PROMPT.format(rows=rows, cols=cols, aspect=aspect,
                                      style=style, chars=chars, panel_list=panel_list)
         model = (cfg.models.get("storyboard_panel") or {}).get("model") or "fal-ai/gpt-image-2"
-        image_size = fal_image_size(aspect, model, cfg.models, "storyboard_panel")
-        result = panel_call(fal, model, prompt, image_size)
+        size_payload = fal_image_payload(aspect, model, cfg.models, "storyboard_panel")
+        result = panel_call(fal, model, prompt, size_payload)
         img_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
         if not img_url:
             raise SystemExit(f"panel response missing image url: {list(result.keys())}")
@@ -176,7 +175,7 @@ def main() -> int:
 
     else:  # per_keyframe
         model = (cfg.models.get("per_keyframe") or {}).get("model") or "fal-ai/nano-banana-2"
-        image_size = fal_image_size(aspect, model, cfg.models, "per_keyframe")
+        size_payload = fal_image_payload(aspect, model, cfg.models, "per_keyframe")
         for b in script.beats:
             prompt = KEYFRAME_PROMPT.format(
                 style=style, aspect=aspect, chars=chars,
@@ -191,7 +190,7 @@ def main() -> int:
             ana: dict = {}
             while attempt <= args.auto_retries:
                 full_prompt = prompt + (f"\n\nADDITIONAL GUIDANCE (regen):\n{addendum}" if addendum else "")
-                result = per_keyframe_call(fal, model, full_prompt, image_size, char_ref)
+                result = per_keyframe_call(fal, model, full_prompt, size_payload, char_ref)
                 kf_url = ((result.get("images") or [{}])[0]).get("url") or result.get("image", {}).get("url")
                 if not kf_url:
                     raise SystemExit(f"per_keyframe response missing image url: {list(result.keys())}")
