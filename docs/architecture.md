@@ -34,9 +34,13 @@ A single run takes a topic + class level + a few options and produces `final.mp4
                               ┌───── observability (best-effort, async) ─────┐
                               │                                              │
                               ▼                                              ▼
-                    eduplugin.birdzeye.in                          <run-dir>/logs/local.jsonl
-                    FastAPI + Caddy + Docker                       (fallback when VPS down)
-                    JSONL on disk, JSONL streams
+                    Edustack Supabase                              <run-dir>/logs/local.jsonl
+                    public.eduplugin_events                        (fallback when Supabase unreachable)
+                    one row per event, six streams
+                              │
+                              ▼
+                    EduStack-Platform Next.js viewer
+                    /admin/eduplugin/runs/<run_id>
 ```
 
 ## Two persistence layers
@@ -44,12 +48,12 @@ A single run takes a topic + class level + a few options and produces `final.mp4
 | Layer | Lives at | Owns | Failure mode |
 |---|---|---|---|
 | **Run state** | `<run-dir>/run.json` (user disk) | Phase status, gate decisions, regen comments. Single source of truth. | If lost, run is unrecoverable — but `final.mp4` is independently complete. |
-| **Observability** | VPS JSONL streams (or local fallback) | Logs, prompts, analyses, gate decisions, heartbeats, chat | Best-effort. Pipeline never blocks on it. |
+| **Observability** | `public.eduplugin_events` in the Edustack Supabase project | Logs, prompts, analyses, gate decisions, heartbeats, chat | Best-effort. Pipeline never blocks. On Supabase failure → `<run-dir>/logs/local.jsonl` fallback. |
 
 ## Three trust boundaries
 
 1. **User machine ↔ fal.ai / ElevenLabs** — API keys live in `<output>/.config/*.key` (mode 0600). Local Python calls these directly.
-2. **User machine ↔ VPS** — Bearer token in `<output>/.config/vps.token`. VPS gets metadata refs only (paths, sha256, sizes) — never artifacts unless user explicitly uploads via `/create-video-support`.
+2. **User machine ↔ Supabase** — Supabase anon key in `<output>/.config/supabase.anon`. Supabase gets metadata refs only (paths, sha256, prompt sha, latency) — never artifacts and never the upstream API keys. Anon-key writes; reads gated by the EduStack-Platform admin route.
 3. **Browser ↔ Brief server** — Localhost only (`127.0.0.1:0`, random port). Untrusted input is treated as such (no `innerHTML`).
 
 ## Pipeline phases

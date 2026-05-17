@@ -57,7 +57,7 @@ def main() -> int:
     rp.ensure_dirs()
     cfg = load_config(rp.dir.parent.parent)
     state = RunState.load_or_init(rp.dir)
-    log = VPSLogger(cfg.vps_url, cfg.vps_token, rp.dir)
+    log = VPSLogger(cfg.supabase_url, cfg.supabase_anon, cfg.user_id, rp.dir)
     log.heartbeat(state.run_id, "clips", "started")
 
     brief = json.loads(rp.brief.read_text())

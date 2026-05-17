@@ -38,8 +38,8 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 1. **`plugin.json` lists everything.** When you add a command, skill, or hook, edit `plugin.json` too.
 2. **A skill is its directory.** `skills/X/SKILL.md` is mandatory; `references/*.md` are loaded by Claude only when the SKILL.md links to them via `@references/...`.
 3. **Image aspect derives from `brief.aspect`.** Never hardcode 16:9 in storyboard or clip code. Read `<output>/.config/models.yaml > aspect_sizes[brief.aspect]`. Character sheets are the only intentional exception (always 1:1).
-4. **VPS observability is best-effort.** `scripts/lib/vps_logger.py` MUST NOT raise on failure — fall back to `<run-dir>/logs/local.jsonl`. The pipeline never blocks on the VPS.
-5. **Keys never leave the user's machine.** `<output>/.config/{fal,elevenlabs}.key` are read by local Python only. The VPS sees metadata refs (paths + sha256), not artifacts.
+4. **Supabase observability is best-effort.** `scripts/lib/supabase_sink.py` MUST NOT raise on failure — fall back to `<run-dir>/logs/local.jsonl`. The pipeline never blocks on the sink. `scripts/lib/vps_logger.py` is a thin alias re-exporting `SupabaseSink` for back-compat.
+5. **Keys never leave the user's machine.** `<output>/.config/{fal,elevenlabs}.key` are read by local Python only. The Supabase sink writes metadata refs (paths + sha256, prompt sha) — never raw artifacts and never the API keys.
 6. **Form field names must match `brief.json` schema** in [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md). The Edustack web platform reads the same shape — drift breaks cross-port.
 7. **Gates are chat-only.** No web UI. Surfaced via clickable file paths in the chat message; user replies `approve` or `regen <target>: <comment>`.
 
@@ -53,7 +53,7 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 | VO | ElevenLabs direct (not via fal) | Need word-level timestamps for stitcher |
 | Vision model | Gemini 2.5 Pro via `fal-ai/any-llm` → OpenRouter | Pro materially reduces drift false-negatives vs Flash; cost is rounding-error |
 | Stitching | MoviePy + ffmpeg local | Continuity with edu-vid-gen-cloud; full control over transitions |
-| VPS role | Observability sink only | Never sees keys, never runs phase scripts |
+| Observability sink | Supabase `eduplugin_events` on Edustack project + viewer at EduStack-Platform `/admin/eduplugin/runs` | No standalone VPS; reuses existing infra; one table, six streams |
 | Brief UI | Localhost Node stdlib HTTP, random port | Zero deps, exits on submit |
 | Update model | `git pull` (fast-forward only) from public GitHub | Fully manual via `/plugin-update`; no auto-check |
 | Character modes | `human` / `abstract` / `none` | `none` skips Phase 3a and uses prompt-driven consistency block |
@@ -112,7 +112,7 @@ No automated tests yet. The Verification section of the original implementation 
 | Change retry behavior | [scripts/lib/fal_client.py](scripts/lib/fal_client.py), [scripts/lib/elevenlabs_client.py](scripts/lib/elevenlabs_client.py) |
 | Change the brief form | [skills/brief-collector/server/public/](skills/brief-collector/server/public/) + [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md) |
 | Change a default model | [seed/models.yaml](seed/models.yaml) (user overrides in `<output>/.config/models.yaml`) |
-| Change VPS endpoints | [vps/app/main.py](vps/app/main.py) — update client in [scripts/lib/vps_logger.py](scripts/lib/vps_logger.py) in lockstep |
+| Change observability schema | Apply a Supabase migration to `public.eduplugin_events` (via `Supabase-Edustack` MCP), update [scripts/lib/supabase_sink.py](scripts/lib/supabase_sink.py) writers, and update [EduStack-Platform/app/(authenticated)/admin/eduplugin/](../edustack/EduStack-Platform/app/(authenticated)/admin/eduplugin) reader in lockstep |
 | Change Claude chat shipping | [hooks/ship-chat.sh](hooks/ship-chat.sh) + the consent prompt in [skills/setup/SKILL.md](skills/setup/SKILL.md) |
 | Re-export Edustack seed data | Use the `Supabase-Edustack` MCP server (see `seed/form-options.json` for the source query) |
 
@@ -121,11 +121,11 @@ No automated tests yet. The Verification section of the original implementation 
 ## Don't do
 
 - Don't add a web UI for review gates. They are chat-only on purpose.
-- Don't centralize state on the VPS. The VPS is observability; the source of truth is `<run-dir>/run.json` on the user's disk.
+- Don't centralize state in Supabase. The sink is observability only; the source of truth is `<run-dir>/run.json` on the user's disk.
 - Don't add a second image or video provider. Single-provider is the simplification we want.
 - Don't add a database. JSONL on disk is sufficient for the VPS's life.
 - Don't write skill descriptions starting with "This skill does X" — they activate poorly. Use trigger phrases that match user intent.
-- Don't hardcode `https://eduplugin.birdzeye.in` outside `seed/models.yaml`-style defaults. Users may bring their own VPS.
+- Don't hardcode the Supabase URL outside `scripts/lib/config.DEFAULT_SUPABASE_URL`. Users may bring their own project (override at setup).
 
 ---
 
