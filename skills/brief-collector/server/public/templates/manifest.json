@@ -1,0 +1,121 @@
+{
+  "templates": [
+    {
+      "id": "full-bleed-with-text-zone",
+      "name": "Full-Bleed with Text Zone",
+      "aspect": "16:9",
+      "canvas": "A3L",
+      "frequency": 35,
+      "bestFor": ["narrative", "scene-setting", "covers"],
+      "refs": [
+        "full-bleed-with-text-zone/ref_01_kids-garden-sky-text.jpg",
+        "full-bleed-with-text-zone/ref_02_boy-fox-beach-text-right.jpg"
+      ],
+      "wireframe": "1.svg"
+    },
+    {
+      "id": "vignette-on-page",
+      "name": "Vignette on Page",
+      "aspect": "3:4",
+      "canvas": "A4P",
+      "frequency": 15,
+      "bestFor": ["character-intros", "gentle"],
+      "refs": [
+        "vignette-on-page/ref_01_lucy-mouse-soft-vignette.jpg",
+        "vignette-on-page/ref_02_benny-max-bear-vignette.jpg"
+      ],
+      "wireframe": "2.svg"
+    },
+    {
+      "id": "split-layout",
+      "name": "Split Layout",
+      "aspect": "16:9",
+      "canvas": "A3L",
+      "frequency": 15,
+      "bestFor": ["story-plus-text", "exposition"],
+      "refs": [
+        "split-layout/ref_01_old-woman-birds-split.jpg",
+        "split-layout/ref_02_russian-chapter-split.jpg"
+      ],
+      "wireframe": "3.svg"
+    },
+    {
+      "id": "scattered-spots",
+      "name": "Scattered Spots",
+      "aspect": "3:4",
+      "canvas": "A4P",
+      "frequency": 12,
+      "bestFor": ["educational", "concepts"],
+      "refs": [
+        "scattered-spots/ref_01_giraffe-educational-spots.jpg",
+        "scattered-spots/ref_02_dog-bodylang-spots.jpg"
+      ],
+      "wireframe": "4.svg"
+    },
+    {
+      "id": "full-spread-no-text",
+      "name": "Full Spread No Text",
+      "aspect": "16:9",
+      "canvas": "A3L",
+      "frequency": 5,
+      "bestFor": ["dramatic-moments"],
+      "refs": [
+        "full-spread-no-text/ref_01_chinese-girl-full-spread.jpg",
+        "full-spread-no-text/ref_02_vietnamese-garden-full.jpg"
+      ],
+      "wireframe": "5.svg"
+    },
+    {
+      "id": "illustrated-border",
+      "name": "Illustrated Border",
+      "aspect": "3:4",
+      "canvas": "A4P",
+      "frequency": 8,
+      "bestFor": ["spiritual", "poetry"],
+      "refs": [
+        "illustrated-border/ref_01_french-spider-foliage-frame.jpg",
+        "illustrated-border/ref_02_fox-crow-tree-frame.jpg"
+      ],
+      "wireframe": "6.svg"
+    },
+    {
+      "id": "character-text-pocket",
+      "name": "Character Text Pocket",
+      "aspect": "3:4",
+      "canvas": "A4P",
+      "frequency": 3,
+      "bestFor": ["book-covers"],
+      "refs": [
+        "character-text-pocket/ref_01_gorilla-c-shape-pocket.jpg",
+        "character-text-pocket/ref_02_jungle-book-tiger-pocket.jpg"
+      ],
+      "wireframe": "7.svg"
+    },
+    {
+      "id": "connected-infographic",
+      "name": "Connected Infographic",
+      "aspect": "3:4",
+      "canvas": "A4P",
+      "frequency": 2,
+      "bestFor": ["science-diagrams"],
+      "refs": [
+        "connected-infographic/ref_01_giraffe-infographic.jpg",
+        "connected-infographic/ref_02_dog-bodylang-infographic.jpg"
+      ],
+      "wireframe": "8.svg"
+    },
+    {
+      "id": "spread-scene-plus-spots",
+      "name": "Spread Scene + Spots",
+      "aspect": "16:9",
+      "canvas": "A3L",
+      "frequency": 5,
+      "bestFor": ["double-page-spreads"],
+      "refs": [
+        "spread-scene-plus-spots/ref_01_fairies-spread-plus-spots.jpg",
+        "spread-scene-plus-spots/ref_02_bear-roar-spread-spots.jpg"
+      ],
+      "wireframe": "9.svg"
+    }
+  ]
+}
