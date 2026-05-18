@@ -8,7 +8,15 @@ This file orients Claude Code (and future maintainers) when working in this repo
 
 `edustack-video` is a **Claude Code plugin** that generates educational explainer videos through a 5-phase pipeline (script → VO → characters → storyboard → clips → stitch) with 4 chat-driven review gates.
 
-The plugin lives in this repo and is installed by end users via `claude plugin add https://github.com/designcraveyard/edustack-video`. Updates are pulled manually via `/plugin-update`.
+The plugin lives in this repo and is installed by end users **inside a Claude Code session** via the canonical slash-command flow (`claude plugin add` is not a real CLI command — a common point of confusion):
+
+```text
+/plugin marketplace add designcraveyard/edustack-video
+/plugin install edustack-video@edustack-video
+/reload-plugins
+```
+
+The repo is both the marketplace and the plugin — that pattern is declared in `.claude-plugin/marketplace.json`. Updates pull on the user's schedule via `/plugin marketplace update edustack-video` or this plugin's `/plugin-update` (which additionally runs `uv pip sync` / `npm ci` if deps changed).
 
 It is **not** a library, not an app, not a service. It is a directory of Markdown, Python, Node, and YAML that Claude Code loads and executes.
 

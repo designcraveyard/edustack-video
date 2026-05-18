@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "edustack-video",
+  "owner": {
+    "name": "designcraveyard",
+    "url": "https://github.com/designcraveyard"
+  },
+  "metadata": {
+    "description": "Single-plugin marketplace for edustack-video — the repo is both the marketplace and the plugin (Anthropic's recommended pattern for solo-maintained plugins).",
+    "homepage": "https://github.com/designcraveyard/edustack-video",
+    "license": "MIT"
+  },
+  "plugins": [
+    {
+      "name": "edustack-video",
+      "source": "./",
+      "description": "Educational explainer video pipeline: fal.ai + ElevenLabs, 5 phases with 4 chat-driven review gates, MoviePy stitching, Supabase observability — plus an optional Book branch (transparent-BG A4P/A3L 300 DPI illustrations).",
+      "version": "0.2.0",
+      "homepage": "https://github.com/designcraveyard/edustack-video",
+      "license": "MIT",
+      "keywords": [
+        "education",
+        "video",
+        "fal-ai",
+        "elevenlabs",
+        "supabase",
+        "claude-code-plugin"
+      ]
+    }
+  ]
+}

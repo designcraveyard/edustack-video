@@ -27,11 +27,19 @@ For real deploy: `ssh root@157.173.222.220`, rsync `vps/` to `/opt/eduplugin/`, 
 
 ## Install the plugin locally for end-to-end testing
 
-```bash
-claude plugin add ~/Documents/GitHub/edustack-video    # path install picks up your live edits
+Inside a Claude Code session (the install is slash-command only — `claude plugin add` isn't a real CLI):
+
+```text
+/plugin marketplace add ~/Documents/GitHub/edustack-video
+/plugin install edustack-video@edustack-video
+/reload-plugins
+
 /create-video-setup
+/test-logs
 /create-video
 ```
+
+The local-path marketplace picks up your live edits — useful for iterating on a SKILL.md or phase script and seeing the effect immediately. After non-trivial changes, run `/reload-plugins` again.
 
 ## Editing skills
 

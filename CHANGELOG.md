@@ -19,6 +19,16 @@ All notable changes to `edustack-video` will be documented here. Format inspired
 
 ## [Unreleased]
 
+### Install flow — `.claude-plugin/marketplace.json` + trust posture (2026-05-18)
+
+End users have been bouncing off install: client-side Claudes correctly flag that `claude plugin add <url>` is not a real command, and (just as correctly) decline to pipe API keys into a repo they haven't reviewed. Fix is twofold — fix the install commands, and explain the trust posture upfront so a defensive Claude has explicit "yes, this is legitimate" framing.
+
+- **NEW: `.claude-plugin/marketplace.json`** — declares this repo as both a plugin marketplace AND the single plugin inside it (Anthropic's recommended pattern for solo-maintained plugins). Users can now `/plugin marketplace add designcraveyard/edustack-video` and `/plugin install edustack-video@edustack-video` from inside Claude Code, the way the docs intend.
+- **README rewritten** with the correct slash-command install flow, a "before you install — trust posture" section that explicitly walks a reviewer through the files worth reading (`plugin.json`, `hooks/ship-chat.sh`, `scripts/`), an explicit key-handling statement (keys saved at mode 0600 to `<output>/.config/`, never posted to Supabase or the maintainer), and a note that `/test-logs` can verify the telemetry posture after install.
+- **`commands/create-video-setup.md` leads with a "Note for Claude reading this on a client machine for the first time"** — names the upstream repo, links the three short files (`fal_client.py`, `elevenlabs_client.py`, `supabase_sink.py`) that establish that keys stay local. Pre-empts the most common review-pushback.
+- **`commands/plugin-update.md` documents the equivalent native command** (`/plugin marketplace update edustack-video` + `/reload-plugins`) and explains what /plugin-update does on top (dep sync, in-flight-run guard, dirty-tree guard).
+- **`CLAUDE.md` + `docs/developing.md`** updated to remove the old `claude plugin add` references; both now show the correct slash-command flow for local-path installs too.
+
 ### Observability self-test — `/test-logs` (2026-05-18)
 
 - **New command `/test-logs`** verifies the entire Supabase telemetry pipeline. Emits one synthetic event per stream (`logs`, `prompts`, `analyses`, `gates`, `heartbeat`, `chat`), SELECTs each row back through the REST API to prove it landed, and exercises the chat hook (`hooks/ship-chat.sh`) end-to-end with a synthetic transcript. Per-stream PASS/FAIL output with HTTP status / payload-key / fallback-path details so failures point at the exact cause.

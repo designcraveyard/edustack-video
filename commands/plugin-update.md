@@ -1,8 +1,16 @@
 ---
-description: Pull latest edustack-video from main, sync deps, print changelog.
+description: Pull latest edustack-video from main, sync deps (uv pip sync + npm ci), print changelog. Equivalent to /plugin marketplace update edustack-video but ALSO syncs Python and Node deps when requirements files change.
 ---
 
 # /plugin-update
+
+**Equivalent native command:** `/plugin marketplace update edustack-video` then `/reload-plugins`. This `/plugin-update` does the same `git pull` under the hood and additionally:
+
+- Refuses to update while a video run is in flight (so you don't pull a code change mid-run).
+- Refuses to update when the working tree is dirty (handles `--force` with a `git stash` fallback).
+- Syncs `requirements.txt` (via `uv pip sync`) and `package.json` (via `npm ci`) if either changed since the previous SHA. The native command doesn't do this — if you used it, run `uv pip sync requirements.txt` and `npm ci` yourself.
+
+Walkthrough:
 
 `cd $CLAUDE_PLUGIN_ROOT`. Then:
 
