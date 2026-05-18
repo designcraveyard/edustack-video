@@ -22,9 +22,10 @@ A single run takes a topic + class level + a few options and produces `final.mp4
    brief-collector  script-writer  vo-generator  character…  storyboard…  clip-generator  stitcher
         │              │             │              │              │             │           │
         ▼              │             ▼              │              ▼             ▼           ▼
-   localhost      brief.json   ElevenLabs       fal.ai          fal.ai      fal.ai i2v   MoviePy
-   Node form                  (direct API,     Nano Banana 2   gpt-image-2  Seedance 1.5  + ffmpeg
-                              with_timestamps) or skip          OR Nano BB  Pro          local
+   localhost      brief.json   ElevenLabs       fal.ai            fal.ai       fal.ai i2v   MoviePy
+   Node form                  (direct API,     gpt-image-2       gpt-image-2  Seedance 1.5  + ffmpeg
+                              with_timestamps) rich sheet (16:9)  OR Nano BB-2 Pro          local
+                                                or skip (none)
                                                                                           │
                               ┌───── visual analysis (Gemini 2.5 Pro via fal-ai/any-llm) ─┘
                               │
@@ -73,8 +74,14 @@ ElevenLabs direct (not via fal) for word-level timestamps. Output is `audio/full
 
 ### Phase 3a — Character setup
 Branches on `character_mode`:
-- **human** / **abstract** → Nano Banana 2 character sheet + Gemini analysis.
-- **none** → skipped; a `characters/description_block.md` is written instead and prepended to every later prompt.
+- **human** / **abstract** → `fal-ai/gpt-image-2` rich-template sheet (16:9 landscape, `quality: high`) + Gemini 2.5 Pro audit with auto-regen (up to 2×). Writes 4 outputs to `<run-dir>/characters/`:
+  - `sheet.png` — the generated sheet image.
+  - `sheet_prompt.md` — full prompt sent + style descriptor + verbatim character descriptions (audit trail).
+  - `analysis.json` — Gemini QA report (`verdict`, `regen_reason`, `corrective_addendum`) plus `_qa_history` of every regen attempt.
+  - `descriptions.json` — per-character verbatim paragraphs that downstream phases (3b + 4) paste IDENTICALLY into every prompt's CHARACTERS section. **This is the consistency contract.**
+- **none** → skipped; `characters/description_block.md` is written instead and prepended to every later prompt.
+
+The descriptions on the sheet PNG, in `descriptions.json`, and in every downstream prompt are byte-for-byte identical — that's how character identity locks across all beats and clips.
 
 ### Phase 3b — Storyboard / keyframes
 Branches on `image_mode`:

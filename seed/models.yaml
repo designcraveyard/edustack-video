@@ -43,10 +43,18 @@ per_keyframe:
   # image_size: portrait_16_9
 
 character_sheet:
-  model: fal-ai/nano-banana-2
-  # Same model as per_keyframe — same override keys apply.
-  # aspect_ratio: "1:1"
-  # resolution: "2K"
+  model: fal-ai/gpt-image-2
+  # gpt-image-2 handles the multi-region structured layout we want for sheets
+  # (title + LEFT hero + CENTER/RIGHT TOP per-character expressions row +
+  # turnaround + BOTTOM CENTER palette + BOTTOM MIDDLE expressions grid +
+  # BOTTOM RIGHT details). Nano Banana 2 is great for single-subject
+  # keyframes but struggles with the structured grid layout.
+  # gpt-image-2 uses image_size (preset or {w,h}). Sheets are 16:9 landscape
+  # by default so the LEFT hero + RIGHT character grid both have room.
+  image_size: landscape_16_9
+  quality: high
+  # output_format: png  # default
+  # background: "white" # studio sheet aesthetic; set transparent only if needed.
 
 video_i2v:
   model: fal-ai/bytedance/seedance/v1.5/pro/image-to-video

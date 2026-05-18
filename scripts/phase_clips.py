@@ -83,8 +83,23 @@ def main() -> int:
     aspect = brief.get("aspect", "16:9")
     style = brief.get("style", "2D Flat")
     character_mode = brief.get("character_mode", "abstract")
-    chars_brief = (rp.description_block.read_text() if (character_mode == "none" and rp.description_block.is_file())
-                   else "(see characters/analysis.json)")
+    # Character descriptions for the clip prompt. Same precedence as
+    # storyboard: descriptions.json (verbatim per-character paragraphs from
+    # Phase 3a) → description_block.md (none-mode equivalent) → legacy
+    # analysis.json reference. Pasting the same verbatim block into every
+    # clip prompt is what keeps Seedance from drifting between clips.
+    chars_brief = "(see characters/analysis.json)"
+    if rp.character_descriptions.is_file():
+        try:
+            _desc = json.loads(rp.character_descriptions.read_text(encoding="utf-8"))
+            _blocks = [f"{c['name']}: {c['verbatim_description']}"
+                       for c in _desc.get("characters", []) if c.get("verbatim_description")]
+            if _blocks:
+                chars_brief = "\n\n".join(_blocks)
+        except Exception:
+            pass
+    elif character_mode == "none" and rp.description_block.is_file():
+        chars_brief = rp.description_block.read_text()
 
     timeline = json.loads(rp.vo_timeline.read_text())
     beats_by_id = {b["id"]: b for b in timeline.get("beats", [])}

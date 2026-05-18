@@ -31,9 +31,37 @@ AUTO_RETRY_BUDGET = 2
 
 
 def character_brief(rp: RunPaths, mode: str) -> str:
-    """Return the character description text used by both prompting + analysis."""
+    """Return the character description block embedded in every keyframe prompt.
+
+    Precedence (highest first):
+
+    1. **descriptions.json** (Phase 3a output for human/abstract modes) — the
+       verbatim per-character paragraphs the character sheet was generated
+       from. Pasting these IDENTICALLY into every storyboard prompt is THE
+       consistency mechanism — the model reads the same character paragraph
+       every call, so identity locks across beats.
+    2. **description_block.md** (Phase 3a output for `character_mode: none`)
+       — the structured continuity block. Same purpose, different source.
+    3. **analysis.json** (legacy fallback) — thin "characters present" label
+       from QA report. Use only if the richer sources are missing (e.g. on
+       runs created before this output contract landed).
+    """
+    # 1. Phase 3a descriptions.json — preferred for human / abstract modes.
+    if rp.character_descriptions.is_file():
+        try:
+            desc = json.loads(rp.character_descriptions.read_text(encoding="utf-8"))
+            blocks = [f"{c['name']}: {c['verbatim_description']}"
+                      for c in desc.get("characters", []) if c.get("verbatim_description")]
+            if blocks:
+                return "\n\n".join(blocks)
+        except Exception:
+            pass
+
+    # 2. description_block.md — `none` mode's equivalent.
     if mode == "none" and rp.description_block.is_file():
         return rp.description_block.read_text(encoding="utf-8").strip()
+
+    # 3. Legacy analysis.json fallback.
     if rp.character_analysis.is_file():
         try:
             analysis = json.loads(rp.character_analysis.read_text())

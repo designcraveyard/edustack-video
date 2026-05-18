@@ -9,7 +9,7 @@ description: Use during Phase 3b of a video run. Generates per-beat keyframe ima
 
 - `<run-dir>/brief.json` (must have `image_mode`)
 - `<run-dir>/script.md`, `<run-dir>/audio/vo_timeline.json`
-- Either `<run-dir>/characters/sheet.png` + `analysis.json` (modes human/abstract) OR `<run-dir>/characters/description_block.md` (mode none).
+- Either `<run-dir>/characters/sheet.png` + `descriptions.json` (modes human/abstract — `descriptions.json` carries the verbatim per-character paragraphs we paste identically into every keyframe prompt) OR `<run-dir>/characters/description_block.md` (mode none). Legacy `analysis.json.checks.characters_present` is a thin fallback only — use `descriptions.json` when present.
 
 ## Outputs
 
@@ -28,7 +28,7 @@ Mode A (`storyboard_panel`):
 3. **Author structured `anchors`** for any beat with two or more labelled elements in a fixed spatial relationship (split-screen, A-vs-B, top/bottom). The clip-generator reads these from `storyboard.json` and bakes spatial constraints into the clip prompt — without anchors, i2v models reliably swap sides (HERBA/CARNI class of bug). See @references/storyboard-prompting.md ▸ "Structured anchors".
 3. Branch on `image_mode`:
    - **Mode A** (`storyboard_panel`):
-     - Build a panel prompt requesting an N-cell grid (N = number of beats), 16:9 panel layout, consistent palette, characters from sheet/description.
+     - Build a panel prompt requesting an N-cell grid (N = number of beats), 16:9 panel layout, consistent palette. The CHARACTERS block in the prompt is built by `character_brief()` (precedence: `descriptions.json` verbatim → `description_block.md` → legacy `analysis.json` label).
      - Call `fal-ai/gpt-image-2`. Save `panel.png`.
      - Run `scripts/extract_keyframes.py` (PIL slicer) → `keyframes/beat_*.png`.
    - **Mode B** (`per_keyframe`):

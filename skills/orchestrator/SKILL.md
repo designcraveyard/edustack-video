@@ -29,7 +29,7 @@ The single owner of an `edustack-video` run. Reads + writes `<run-dir>/run.json`
 |---|---|
 | no `script.md` | `script-writer` |
 | no `audio/full-vo.mp3` | `vo-generator` |
-| `character_mode != none` and no `characters/sheet.png` | `character-sheet-generator` |
+| `character_mode != none` and no `characters/sheet.png` (or missing `characters/descriptions.json`) | `character-sheet-generator` (gpt-image-2 rich sheet + descriptions.json) |
 | `character_mode == none` and no `characters/description_block.md` | `character-sheet-generator` (writes block, exits) |
 | no `storyboard/storyboard.json` | `storyboard-generator` |
 | any `clips/clip_*.mp4` missing | `clip-generator` |

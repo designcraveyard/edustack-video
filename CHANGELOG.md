@@ -19,6 +19,25 @@ All notable changes to `edustack-video` will be documented here. Format inspired
 
 ## [Unreleased]
 
+### Rich character sheets — gpt-image-2 + verbatim descriptions contract (2026-05-18)
+
+Reference Jay & Scooterist / Leafy Grazer & Claw Hunter examples raised the bar for what Phase 3a should produce. Reworked to match.
+
+- **Default model switched: `fal-ai/nano-banana-2` → `fal-ai/gpt-image-2`** for character sheets. gpt-image-2 holds the multi-region structured layout (title + LEFT hero + CENTER/RIGHT TOP per-character expressions row + turnaround + BOTTOM CENTER palette + BOTTOM MIDDLE expressions grid + BOTTOM RIGHT details); Nano Banana 2 was smearing the regions. Nano Banana 2 stays the default for Phase 3b's per-keyframe mode where its single-subject strength shines. Override path documented in [`skills/character-sheet-generator/references/model-selection.md`](skills/character-sheet-generator/references/model-selection.md).
+- **Aspect switched: 1:1 → 16:9 landscape** (`image_size: landscape_16_9`). The 8-region rich layout needs the horizontal real estate.
+- **`scripts/phase_characters.py` rewritten** to compose the canonical rich-template prompt: style descriptor → title → aesthetic bullets → hero pose → per-character verbatim descriptions → CENTER/RIGHT TOP expression rows + turnarounds → BOTTOM palette / expressions grid / details → style finish bullets. Per-style descriptor + finish-bullet tables let any style (Pixar / Watercolour / 2D Flat / Cinematic / Whiteboard / Doodle / Clay / 2D Animated) render correctly out of the box. Auto-regen QA loop (up to 2×) preserved; analyser now also audits **layout completeness** (missing regions are regen-worthy).
+- **Cast-block parsing added to `script_io`** — `script_io.parse_cast()` extracts `### Name → Role / Personality / Voice and tone / Looks` from the script's `## Cast` block. `Script.cast: list[CastMember]` is now part of the parsed script object. `CastMember.verbatim_description` is the canonical paragraph for downstream prompts.
+- **New output: `characters/descriptions.json`** — per-character verbatim paragraphs that downstream phases must paste IDENTICALLY into every prompt. This is the consistency contract. Storyboard and Clip prompts now read precedence: `descriptions.json` (verbatim) → `description_block.md` (none-mode) → `analysis.json` (legacy fallback).
+- **New output: `characters/sheet_prompt.md`** — audit trail of the full prompt sent + style descriptor + verbatim character descriptions; mirrors the structured reference doc the team provided as a "this is how it should look" example.
+- **`phase_storyboard.character_brief()` and `phase_clips.py`** updated to embed verbatim descriptions (not just a "characters present" label). Identity now locks across the whole pipeline.
+- **References rebuilt**:
+  - `references/character-sheet-design.md` — rich 8-region layout, hard rules, QA pattern, output contract.
+  - `references/model-selection.md` — flipped to recommend gpt-image-2; documents WHY (multi-region layout, legible labels, consistent turnaround, locked studio background).
+  - `references/prompt-template.md` (new) — canonical skeleton + Jay & Scooterist (Pixar) and Leafy Grazer & Claw Hunter (Watercolour) end-to-end examples.
+  - `references/description-block-template.md` — generalised: now covers `descriptions.json` (human/abstract) AND `description_block.md` (none-mode) with the same rules.
+- **`SKILL.md` rewritten** to reflect the new outputs, downstream contract, and reference structure.
+- **`paths.RunPaths` adds `character_descriptions` and `character_prompt`** — canonical paths for the new outputs.
+
 ### Brief UI + VO improvements (2026-05-17 evening)
 - **Brief UI voice picker** is now a live ElevenLabs combobox matching the Edustack `publisher/generate` `VoiceComboBox` UX. Server adds `GET /voices?language=…` that reads `<output>/.config/elevenlabs.key`, fetches `/v1/voices`, scores Indian-accent voices first for Hindi/Hinglish/Tamil/Bengali/Marathi, caches 5 min, and returns a slim `{voice_id, name, preview_url, labels}` list. The form replaces the static `<select>` with a searchable + scroll-paginated dropdown with per-row and selected-voice play/stop preview buttons. Refetches on `language` change.
 - **ElevenLabs model pinned to `eleven_v3`** in `seed/models.yaml`, `ElevenLabsClient.tts_with_timestamps`, and `phase_vo`. Required for correct multilingual phonemizing — older `multilingual_v2` mispronounces Hinglish-in-Devanagari and other Indic scripts.

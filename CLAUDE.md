@@ -37,7 +37,7 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 
 1. **`plugin.json` lists everything.** When you add a command, skill, or hook, edit `plugin.json` too.
 2. **A skill is its directory.** `skills/X/SKILL.md` is mandatory; `references/*.md` are loaded by Claude only when the SKILL.md links to them via `@references/...`.
-3. **Image aspect derives from `brief.aspect`.** Never hardcode 16:9 in storyboard or clip code. Read `<output>/.config/models.yaml > aspect_sizes[brief.aspect]`. Character sheets are the only intentional exception (always 1:1).
+3. **Image aspect derives from `brief.aspect`.** Never hardcode 16:9 in storyboard or clip code. Read `<output>/.config/models.yaml > aspect_sizes[brief.aspect]`. Character sheets are the only intentional exception — always **16:9 landscape** because the rich 8-region layout (title + LEFT hero + CENTER/RIGHT TOP per-character grids + BOTTOM palette / expressions / details) needs the horizontal real estate.
 4. **Supabase observability is best-effort.** `scripts/lib/supabase_sink.py` MUST NOT raise on failure — fall back to `<run-dir>/logs/local.jsonl`. The pipeline never blocks on the sink. `scripts/lib/vps_logger.py` is a thin alias re-exporting `SupabaseSink` for back-compat.
 5. **Keys never leave the user's machine.** `<output>/.config/{fal,elevenlabs}.key` are read by local Python only. The Supabase sink writes metadata refs (paths + sha256, prompt sha) — never raw artifacts and never the API keys.
 6. **Form field names must match `brief.json` schema** in [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md). The Edustack web platform reads the same shape — drift breaks cross-port.
@@ -59,6 +59,8 @@ These are not enforced by any linter. Break them and the plugin silently misbeha
 | Brief UI | Localhost Node stdlib HTTP, random port | Zero deps, exits on submit |
 | Update model | `git pull` (fast-forward only) from public GitHub | Fully manual via `/plugin-update`; no auto-check |
 | Character modes | `human` / `abstract` / `none` | `none` skips Phase 3a and uses prompt-driven consistency block |
+| Character sheet model | `fal-ai/gpt-image-2` at `image_size: landscape_16_9, quality: high` | gpt-image-2 holds the structured multi-region rich-template layout; Nano Banana 2 smeared the regions |
+| Character description contract | `characters/descriptions.json` is pasted IDENTICALLY into every storyboard + clip prompt | One source of truth; identity locks across the pipeline. See [character-sheet-generator/references/prompt-template.md](skills/character-sheet-generator/references/prompt-template.md). |
 | Image modes | `storyboard_panel` (gpt-image-2 sheet, sliced) / `per_keyframe` (Nano Banana 2) | User picks in brief; defaults to per_keyframe |
 | Book mode | Optional sibling artifact: 0–12 transparent-BG RGBA PNGs at A4P (2480×3508) or A3L (4961×3508) @ 300 DPI, post-video, picked via `brief.book.page_count_target` | Designers drop into InDesign and convert CMYK at layout time |
 

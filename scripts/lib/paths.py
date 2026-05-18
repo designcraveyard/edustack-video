@@ -57,6 +57,10 @@ class RunPaths:
     @property
     def character_analysis(self) -> Path: return self.characters_dir / "analysis.json"
     @property
+    def character_prompt(self) -> Path: return self.characters_dir / "sheet_prompt.md"
+    @property
+    def character_descriptions(self) -> Path: return self.characters_dir / "descriptions.json"
+    @property
     def description_block(self) -> Path: return self.characters_dir / "description_block.md"
     @property
     def storyboard_json(self) -> Path: return self.storyboard_dir / "storyboard.json"

@@ -2,7 +2,7 @@
 
 ## Image aspect
 
-**Always derived from `brief.aspect`** — never hardcode 16:9. Read sizes from `<output>/.config/models.yaml > aspect_sizes[brief.aspect]`. The full panel render and each sliced keyframe both inherit this aspect. Character sheets are the only exception (always 1:1, since they're a reference grid).
+**Always derived from `brief.aspect`** — never hardcode 16:9. Read sizes from `<output>/.config/models.yaml > aspect_sizes[brief.aspect]`. The full panel render and each sliced keyframe both inherit this aspect. Character sheets are the only exception (always **16:9 landscape**, since the rich 8-region layout — title + hero + per-character grids + palette + expressions + details — needs the horizontal real estate).
 
 ## Mode A — gpt-image-2 multi-panel sheet
 
