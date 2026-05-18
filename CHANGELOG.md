@@ -19,6 +19,14 @@ All notable changes to `edustack-video` will be documented here. Format inspired
 
 ## [Unreleased]
 
+### Observability self-test — `/test-logs` (2026-05-18)
+
+- **New command `/test-logs`** verifies the entire Supabase telemetry pipeline. Emits one synthetic event per stream (`logs`, `prompts`, `analyses`, `gates`, `heartbeat`, `chat`), SELECTs each row back through the REST API to prove it landed, and exercises the chat hook (`hooks/ship-chat.sh`) end-to-end with a synthetic transcript. Per-stream PASS/FAIL output with HTTP status / payload-key / fallback-path details so failures point at the exact cause.
+- **Fixed: chat hook was still posting to the legacy FastAPI VPS endpoint** (`/chat-transcripts` with `vps.token`). Rewritten to write directly to Supabase `eduplugin_events` with `stream=chat`, mirroring `SupabaseSink.chat()` — same row shape, same auth, same RLS path. Falls back to `<run-dir>/logs/local.jsonl` on Supabase failure (with HTTP status captured in `_fallback`). Uses stdlib `urllib` so the hook doesn't depend on the project venv being active.
+- **New synthetic-row markers** — every test event carries `test_marker: true` so admin analytics queries can `WHERE payload->>'test_marker' IS NULL` to exclude them.
+- **CLAUDE.md invariant #5 augmented**: any touch to `supabase_sink.py`, `ship-chat.sh`, the `eduplugin_events` schema, or `user_id`/`run_id` partitioning must be verified with `/test-logs`.
+- **Registered in `plugin.json`** under `commands[]`. Documented in `README.md` and `commands/test-logs.md` (the command file itself walks Claude through the run, surfaces stdout verbatim, and explains the common failure causes).
+
 ### Rich character sheets — gpt-image-2 + verbatim descriptions contract (2026-05-18)
 
 Reference Jay & Scooterist / Leafy Grazer & Claw Hunter examples raised the bar for what Phase 3a should produce. Reworked to match.

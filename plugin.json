@@ -11,6 +11,7 @@
     "commands/create-video-regen.md",
     "commands/create-video-support.md",
     "commands/create-book-regen.md",
+    "commands/test-logs.md",
     "commands/plugin-update.md",
     "commands/plugin-info.md",
     "commands/plugin-rollback.md"

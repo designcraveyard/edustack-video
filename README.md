@@ -32,6 +32,7 @@ System requirements: Node 20+, Python 3.10+, ffmpeg, imagemagick, git.
 | `/create-video-resume` | Resume an interrupted run from the last completed gate. |
 | `/create-video-regen <phase\|item>` | Targeted regeneration (e.g. `regen clip 3`). |
 | `/create-video-support` | Bundle current run state + chat → print debug URL. |
+| `/test-logs` | Self-test the Supabase observability pipeline. Emits one synthetic event per stream + exercises the chat hook, then verifies each row landed. Run after setup. |
 | `/plugin-update` | Pull latest from `main`, sync deps, show changelog. |
 | `/plugin-info` | Current SHA, commits behind, recent changelog. |
 | `/plugin-rollback <sha>` | Check out an older commit. |
