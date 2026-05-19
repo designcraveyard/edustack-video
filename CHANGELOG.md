@@ -2,6 +2,38 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.6.0 — 2026-05-19
+
+### Book pipeline overhaul — two-image prompting + standalone book runs
+
+Ported the layout-gen plugin's "two-image prompting is king" approach into edustack-video's book pipeline. Every book page is now rendered through a **shared layout renderer** ([scripts/lib/book_layout_renderer.py](scripts/lib/book_layout_renderer.py)) that sends:
+
+- **IMAGE 1** — the template's LAYOUT REFERENCE from [seed/template-references/](seed/template-references/) (bundled, 39 reference images across the 9 templates, ~5 MB).
+- **IMAGE 2** — the CONTENT REFERENCE (a video keyframe / a user-uploaded reference image).
+- **IMAGE 3+** — optional character sheets for consistency anchoring.
+
+Prompt framing explicitly tells gpt-image-2: "use LAYOUT from IMAGE 1, CONTENT/STYLE from IMAGE 2." Without that, the model mixes layout and content guidance unpredictably and the output looks generic. With it, the output respects the template's text-zone composition while holding the source's characters and style.
+
+**New entry points and renderers:**
+
+- **`/create-book`** — NEW. Video-less standalone book runs. User provides a mini-brief (topic / class / language / style), chapter text or reference images, picks templates from the 9, plans per page. No video generation at all. New skill at [skills/book-standalone/SKILL.md](skills/book-standalone/SKILL.md), new runner at [scripts/phase_book_standalone.py](scripts/phase_book_standalone.py).
+- **`/create-book-from-keyframes`** — UPGRADED. Default mode is now layout-renderer (was birefnet-only in 0.5.0). Each keyframe is sent as IMAGE 2 to gpt-image-2 alongside the template's layout reference; result is a layout-composed page with the video's characters and style. The legacy birefnet-only path is preserved per-page via `remove_background: true` for users who want the keyframes cut out and used verbatim (~Rs 2/page vs ~Rs 15/page for the renderer path).
+- **Default Phase B2 (book-render)** — UPGRADED. `phase_book_render.py` now uses the same shared renderer instead of its own ad-hoc prompt builder. The Phase B1 (book-plan) → B2 (render) → B3 (print-prep) chain is unchanged; only the per-page render call is rewritten.
+
+**Bundled assets:**
+
+- [seed/template-references/](seed/template-references/) — 39 reference images across 9 templates, ported from layout-gen. Each template has 1–6 reference images plus the manifest below.
+- [seed/template-references/manifest.json](seed/template-references/manifest.json) — per-template metadata: aspect_ratio (16:9 or 3:4), canvas (A3L or A4P), content_type (narrative / educational / character-intro / process), best_ref (the one ref the renderer picks by default), alt_refs (siblings). Plus a `content_type_to_templates` map for content-classification-driven template selection.
+
+**Three book paths summary:**
+
+| Path | When | Quality | Cost |
+|---|---|---|---|
+| `/create-video` with `brief.book.page_count_target > 0` (Phase B1–B3) | Video + book on same topic, fresh book art | Highest (per-page planning, Gemini QA, retry loop) | ~Rs 15–20 / page |
+| `/create-book-from-keyframes` (layout-renderer mode) | Have video, want book with same characters | High (keyframes as content reference) | ~Rs 15 / page |
+| `/create-book-from-keyframes` (birefnet mode, opt-in per page) | Have video, want keyframes verbatim with BG removed | Layout-less (no text zone) | ~Rs 2 / page |
+| `/create-book` standalone | No video, book is the deliverable | High (depends on source-image quality) | ~Rs 15 / page |
+
 ## 0.5.0 — 2026-05-19
 
 ### New skill + command: book from keyframes

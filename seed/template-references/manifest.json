@@ -1,0 +1,100 @@
+{
+  "_source": "Ported from layout-gen (2026-05-19). 39 reference images across 9 templates; ~5MB.",
+  "_purpose": "Each template has one 'best_ref' image that the book renderer sends to fal.ai/gpt-image-2 as the LAYOUT REFERENCE (IMAGE 1). The source content (keyframe / user-uploaded reference) is IMAGE 2. This 'two-image prompting' is what makes layout-faithful book pages — gpt-image-2 follows visual layout exemplars much better than text descriptions alone.",
+
+  "templates": {
+    "full-bleed-with-text-zone": {
+      "aspect_ratio": "16:9",
+      "canvas": "A3L",
+      "content_type": "narrative",
+      "best_ref": "full-bleed-with-text-zone/ref_06_jungle-boy-text-left.jpg",
+      "alt_refs": [
+        "full-bleed-with-text-zone/ref_03_kids-tree-text-topleft.jpg",
+        "full-bleed-with-text-zone/ref_09_forest-path-characters-text-left.jpg"
+      ]
+    },
+    "vignette-on-page": {
+      "aspect_ratio": "3:4",
+      "canvas": "A4P",
+      "content_type": "character-intro",
+      "best_ref": "vignette-on-page/ref_01_lucy-mouse-soft-vignette.jpg",
+      "alt_refs": [
+        "vignette-on-page/ref_02_benny-max-bear-vignette.jpg"
+      ]
+    },
+    "split-layout": {
+      "aspect_ratio": "16:9",
+      "canvas": "A3L",
+      "content_type": "narrative",
+      "best_ref": "split-layout/ref_01_old-woman-birds-split.jpg",
+      "alt_refs": [
+        "split-layout/ref_03_father-child-night-split.jpg",
+        "split-layout/ref_04_trees-birds-watercolor-split.jpg"
+      ]
+    },
+    "scattered-spots": {
+      "aspect_ratio": "3:4",
+      "canvas": "A4P",
+      "content_type": "educational",
+      "best_ref": "scattered-spots/ref_03_red-panda-educational-spots.jpg",
+      "alt_refs": [
+        "scattered-spots/ref_01_giraffe-educational-spots.jpg",
+        "scattered-spots/ref_06_girls-lalala-scattered-poses.jpg"
+      ]
+    },
+    "full-spread-no-text": {
+      "aspect_ratio": "16:9",
+      "canvas": "A3L",
+      "content_type": "narrative",
+      "best_ref": "full-spread-no-text/ref_01_chinese-girl-full-spread.jpg",
+      "alt_refs": [
+        "full-spread-no-text/ref_02_vietnamese-garden-full.jpg"
+      ]
+    },
+    "illustrated-border": {
+      "aspect_ratio": "3:4",
+      "canvas": "A4P",
+      "content_type": "narrative",
+      "best_ref": "illustrated-border/ref_02_fox-crow-tree-frame.jpg",
+      "alt_refs": [
+        "illustrated-border/ref_04_cleo-bedroom-border.jpg",
+        "illustrated-border/ref_05_blorb-forest-border.jpg"
+      ]
+    },
+    "character-text-pocket": {
+      "aspect_ratio": "3:4",
+      "canvas": "A4P",
+      "content_type": "character-intro",
+      "best_ref": "character-text-pocket/ref_01_gorilla-c-shape-pocket.jpg",
+      "alt_refs": [
+        "character-text-pocket/ref_02_jungle-book-tiger-pocket.jpg"
+      ]
+    },
+    "connected-infographic": {
+      "aspect_ratio": "3:4",
+      "canvas": "A4P",
+      "content_type": "educational",
+      "best_ref": "connected-infographic/ref_01_giraffe-infographic.jpg",
+      "alt_refs": [
+        "connected-infographic/ref_02_dog-bodylang-infographic.jpg"
+      ]
+    },
+    "spread-scene-plus-spots": {
+      "aspect_ratio": "16:9",
+      "canvas": "A3L",
+      "content_type": "narrative",
+      "best_ref": "spread-scene-plus-spots/ref_01_fairies-spread-plus-spots.jpg",
+      "alt_refs": [
+        "spread-scene-plus-spots/ref_02_bear-roar-spread-spots.jpg",
+        "spread-scene-plus-spots/ref_04_donkey-grass-spots-plus-scene.jpg"
+      ]
+    }
+  },
+
+  "content_type_to_templates": {
+    "narrative": ["full-bleed-with-text-zone", "split-layout", "illustrated-border", "full-spread-no-text", "spread-scene-plus-spots"],
+    "educational": ["scattered-spots", "connected-infographic", "split-layout"],
+    "character-intro": ["vignette-on-page", "full-bleed-with-text-zone", "character-text-pocket"],
+    "process": ["scattered-spots", "connected-infographic", "spread-scene-plus-spots"]
+  }
+}

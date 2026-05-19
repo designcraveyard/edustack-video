@@ -1,15 +1,24 @@
-"""Standalone path — build a book directly from existing storyboard keyframes
-of a completed video run. Skips Phase B1 (book-plan / gpt-image-2 generation)
-and Phase B2 (book-render) entirely. Pipes through fal-ai/birefnet/v2 for
-background removal when requested, then writes book/plan.json in the same
-shape phase_book_print_prep.py expects.
+"""Build a book from existing storyboard keyframes of a completed video run,
+running each keyframe through the shared two-image-prompting layout renderer
+(scripts/lib/book_layout_renderer.py).
 
-Why this exists
----------------
-Video runs already produce 4–12+ keyframes at <run-dir>/storyboard/keyframes/.
-Re-generating those scenes through gpt-image-2 for the book branch (the
-default phase_book_plan + phase_book_render flow) is expensive and loses
-visual continuity with the video. This script reuses the keyframes verbatim.
+Two modes per page:
+  remove_background: false  → render through gpt-image-2 with the keyframe
+                              as IMAGE 2 (content/style reference) and the
+                              template's layout reference as IMAGE 1. Output
+                              is a layout-composed page that holds the
+                              video's characters and style. (Recommended.)
+  remove_background: true   → legacy 0.5.0 path — just birefnet-cutout the
+                              keyframe and use it verbatim on the page. No
+                              fresh image gen, no layout composition. Cheap
+                              (~Rs 2/page vs ~Rs 15/page) but no
+                              layout-faithful text zones. Use when the user
+                              wants the keyframes verbatim with just BG
+                              removal applied.
+
+Always writes book/plan.json in the same shape phase_book_print_prep.py
+expects. With --run-print-prep, auto-invokes the print-prep phase to
+compose the final A4P/A3L canvases at 300 DPI.
 
 Workflow
 --------
@@ -66,6 +75,10 @@ from scripts.lib.run_state import RunState
 from scripts.lib.paths import RunPaths
 from scripts.lib.fal_client import FalClient
 from scripts.lib.vps_logger import VPSLogger
+from scripts.lib.book_layout_renderer import (
+    RenderRequest, render_book_page_payload, download_and_open_rgba,
+    extract_image_url,
+)
 
 
 def _extract_image_url(result: dict) -> str | None:
@@ -149,6 +162,18 @@ def main() -> int:
 
     fal = FalClient(cfg.fal_key, logger=log, run_id=state.run_id)
 
+    # Resolve art_style + character sheet refs once — used by every layout-rendered page.
+    art_style = config.get("art_style") or ""
+    if not art_style and (run_dir / "brief.json").exists():
+        try:
+            art_style = json.loads((run_dir / "brief.json").read_text()).get("style") or ""
+        except Exception:
+            pass
+    character_refs: list[Path] = []
+    sheet = run_dir / "characters" / "sheet.png"
+    if sheet.exists():
+        character_refs.append(sheet)
+
     plan_pages: list[dict] = []
     n_ok = 0
     n_fail = 0
@@ -157,7 +182,8 @@ def main() -> int:
         src_rel = entry["source_keyframe"]
         template = entry["template"]
         copy_text = entry.get("book_voice_copy") or ""
-        remove_bg = bool(entry.get("remove_background", True))
+        remove_bg = bool(entry.get("remove_background", False))
+        scene_description = entry.get("scene_description") or copy_text or ""
 
         src = (run_dir / src_rel).resolve()
         if not src.is_file():
@@ -168,11 +194,29 @@ def main() -> int:
         dst = pages_dir / f"page-{page_no:02d}.png"
         try:
             if remove_bg:
+                # Legacy 0.5.0 path — birefnet only, no fresh image gen.
                 _birefnet_to_rgba(fal, src, dst)
                 method = "birefnet"
             else:
-                _to_rgba_copy(src, dst)
-                method = "copy"
+                # Layout-gen-style two-image prompting through gpt-image-2.
+                req = RenderRequest(
+                    template=template,
+                    scene_description=scene_description,
+                    art_style=art_style,
+                    content_refs=[src],
+                    character_refs=character_refs,
+                    transparent_bg=True,
+                )
+                prompt, image_urls, size, meta = render_book_page_payload(req)
+                result = fal.gpt_image_2_book_page(
+                    prompt=prompt, image_urls=image_urls, size=size,
+                )
+                url = extract_image_url(result)
+                if not url:
+                    raise RuntimeError(f"no image url in fal response: {list(result.keys())}")
+                img = download_and_open_rgba(url)
+                img.save(dst, format="PNG")
+                method = "gpt-image-2/layout-renderer"
         except Exception as e:  # noqa: BLE001
             print(f"[book-from-keyframes] page {page_no}: {e}", file=sys.stderr)
             log.log(state.run_id, "book-from-keyframes", "error",

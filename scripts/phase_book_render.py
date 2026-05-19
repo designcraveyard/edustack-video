@@ -112,31 +112,49 @@ def _extract_image_url(result: dict) -> str:
 def render_one_page(
     page: dict, run_dir: Path, fal: FalClient, analyzer: VisualAnalyzer,
     templates_md: dict[str, str], character_brief: str, max_retries: int = 2,
+    art_style: str = "",
 ) -> dict:
+    """Render one book page using the shared layout-gen-style two-image prompter.
+
+    Page entries should carry:
+      - template (e.g. "split-layout")
+      - scene_prompt (book-voice content description for the page)
+      - keyframe_ref (optional, relative to run_dir)
+      - character_refs (optional list, relative to run_dir, up to 3)
+      - text_zone_hint (optional override for the default text-zone directive)
+    """
+    from scripts.lib.book_layout_renderer import (
+        RenderRequest, render_book_page_payload, template_meta,
+    )
+
     page_no = int(page["page_no"])
     tmpl = page["template"]
-    canvas = page["canvas"]
-    size = "1024x1456" if canvas == "A4P" else "1456x1024"
-    fallback_pattern = (
-        "Use the character and art style from these reference images. Match the characters' "
-        "appearance exactly across all generated pages. Generate a children's book illustration: "
-        "{scene_description}. {art_style_description}."
-    )
-    pattern = templates_md.get(tmpl, fallback_pattern)
-    prompt = render_prompt(pattern, page["scene_prompt"], page.get("prompt_params") or {}, page.get("text_zone_hint") or "")
 
-    # Build image refs — keyframe first, then up to 3 character refs (cap 4 total)
-    image_urls: list[str] = []
+    # Resolve content + character ref absolute paths from the run dir.
+    content_refs: list[Path] = []
     kf = page.get("keyframe_ref")
     if kf:
         kf_path = run_dir / kf
         if kf_path.exists():
-            image_urls.append(_to_data_url(kf_path))
+            content_refs.append(kf_path)
+    character_refs: list[Path] = []
     for cref in (page.get("character_refs") or [])[:3]:
         cref_path = run_dir / cref
         if cref_path.exists():
-            image_urls.append(_to_data_url(cref_path))
-    image_urls = image_urls[:4]
+            character_refs.append(cref_path)
+
+    req = RenderRequest(
+        template=tmpl,
+        scene_description=page.get("scene_prompt") or "",
+        art_style=art_style or "",
+        content_refs=content_refs,
+        character_refs=character_refs,
+        text_zone_directive=page.get("text_zone_hint") or "",
+        bleed_elements=page.get("bleed_elements") or "",
+        transparent_bg=True,
+    )
+    prompt, image_urls, size, meta = render_book_page_payload(req)
+    canvas = meta.canvas  # informational; downstream uses page["canvas"] when present
 
     out_dir = run_dir / "book" / "pages"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -218,6 +236,16 @@ def main() -> int:
 
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     pages = plan.get("pages") or []
+    # Read art_style from the run's brief so the renderer can echo it in the
+    # IMAGE-2-style-fidelity instruction. Standalone book runs may not have a
+    # brief.json — empty string is fine, gpt-image-2 still has IMAGE 2 as the
+    # style ground truth.
+    art_style = ""
+    if rp.brief.exists():
+        try:
+            art_style = (json.loads(rp.brief.read_text()).get("style") or "")
+        except Exception:
+            pass
     if args.only_page:
         pages = [p for p in pages if int(p["page_no"]) == args.only_page]
         if not pages:
@@ -244,7 +272,7 @@ def main() -> int:
     results: list[tuple[int, str]] = []
     for page in pages:
         try:
-            qa = render_one_page(page, run_dir, fal, analyzer, templates_md, char_brief)
+            qa = render_one_page(page, run_dir, fal, analyzer, templates_md, char_brief, art_style=art_style)
             results.append((int(page["page_no"]), qa.get("status", "unknown")))
         except Exception as e:  # noqa: BLE001
             print(f"[book-render] page {page.get('page_no')} failed: {e}", file=sys.stderr)
