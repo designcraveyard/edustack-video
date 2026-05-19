@@ -16,3 +16,8 @@ runs/
 
 # Runtime marker — populated by .claude/hooks/track-plugin-edits.py, cleared after doc review.
 .claude/.docs-stale
+
+# Local smoke-test scratch — Wan 2.7 human-character validation artifacts
+# (character sheet PNGs, storyboard, keyframes, generated clips, smoke script).
+# Kept out of the repo: scratch, not pipeline code.
+Photorealistic Human Video Test/
