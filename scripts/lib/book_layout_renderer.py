@@ -120,15 +120,23 @@ LAYOUT-GEN PRINCIPLES (apply all):
 - Bleed elements: have some illustrated elements ({bleed_elements}) extend
   gently from the main illustration into the text zone, creating an
   organic transition. Do not let them fill or clutter the text zone.
-- {transparency_directive}
+- TEXT ZONE FILL: paint the text zone as a SOFT LIGHT AREA in a single
+  pale colour appropriate to the scene (light cream, light pastel sky,
+  soft warm beige, light grey-white, OR the natural sky / wall / paper
+  colour of the scene). The fill must be one quiet flat-to-gradient tone
+  — NO checker pattern, NO transparency indicator, NO dappled noise, NO
+  busy texture. Think of a sunlit sky or a creamy paper background.
+- BACKGROUND: opaque, full-page coverage. Every pixel painted. No
+  transparent regions anywhere — the designer overlays text on top of
+  this painted page later.
 
 Art-style fidelity: hold IMAGE 2's exact characters, palette, and rendering
 style. No style drift. If IMAGE 2 is photoreal, the page is photoreal. If
 IMAGE 2 is 2D animated, the page is 2D animated.
 
 ABSOLUTE: No text, no words, no letters, no numbers, no captions, no
-labels anywhere in the image. The page is illustration-only — text is
-added later by the designer.
+labels anywhere in the image. No checker pattern. No grid pattern. The
+page is illustration-only — text is added later by the designer.
 """
 
 
@@ -151,7 +159,11 @@ class RenderRequest:
     character_refs: list[Path]      # optional character sheets / refs; will be data-URL'd
     text_zone_directive: str = ""   # template-specific text-zone language. Auto-filled if empty.
     bleed_elements: str = ""        # template-specific bleed elements. Auto-filled if empty.
-    transparent_bg: bool = True     # True for the default branch (transparent for designer overlay), False for from-keyframes when user wants opaque scenes
+    # Note: transparent backgrounds are off by default since 0.6.2 — gpt-image-2
+    # paints a literal checker pattern when asked to "leave transparent". The
+    # text zone is painted as a soft light area instead and book_canvas.compose()
+    # flattens any residual alpha onto solid white at print time.
+    transparent_bg: bool = False
 
 
 _DEFAULT_TEXT_ZONE_DIRECTIVE = {
@@ -189,20 +201,12 @@ def build_prompt(req: RenderRequest, meta: TemplateMeta) -> str:
         f"redesign any character that appears on these sheets."
         if req.character_refs else ""
     )
-    transparency_directive = (
-        "Transparent background. The text zone region must be left fully "
-        "transparent — no painted background, no parchment, no light wash. "
-        "Illustration elements only."
-        if req.transparent_bg else
-        "Opaque background. Render the full scene including background."
-    )
     return TWO_IMAGE_PROMPT.format(
         aspect_ratio=meta.aspect_ratio,
         canvas=meta.canvas,
         scene_description=req.scene_description.strip(),
         text_zone_directive=text_zone,
         bleed_elements=bleed,
-        transparency_directive=transparency_directive,
         character_refs_note=character_refs_note,
     )
 

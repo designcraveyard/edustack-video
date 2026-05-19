@@ -1,6 +1,6 @@
 {
   "name": "edustack-video",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "description": "Educational explainer video pipeline plugin. fal.ai + ElevenLabs, 5-phase video generation with 4 chat-driven review gates, MoviePy stitching, VPS observability — plus an optional Book branch that produces curated transparent-BG illustrations at A4P/A3L 300 DPI via fal-ai/gpt-image-2.",
   "homepage": "https://github.com/designcraveyard/edustack-video",
   "license": "MIT",

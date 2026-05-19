@@ -2,6 +2,32 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.6.2 — 2026-05-19
+
+### Book page output is now opaque + full-bleed + checker-pattern-free
+
+Three coupled fixes after 0.6.0 caught real failure modes during a live test on the herbivore-vs-carnivore run:
+
+- **Checker pattern in text zone (visible grid artifact).** Root cause: `gpt-image-2` was being asked to "leave the text zone transparent" (via prompt) AND was being passed `background: "transparent"` (via fal payload). The model interpreted this as "paint a literal checkerboard pattern in that area" rather than actually outputting transparent pixels. The grid was baked INTO the painted RGBA. Fix: dropped both. The prompt now asks for a "soft light area in a single pale colour appropriate to the scene (light cream, light pastel sky, soft warm beige) — NO checker pattern, NO grid pattern". The fal payload no longer sends `background: "transparent"`. Output is opaque on every pixel; the designer overlays text on the painted text zone in InDesign.
+
+- **Blank space on the canvas (image placed left/right with margins).** Root cause: `book_canvas.compose()` was using per-template `position` / `scale` / `margin` rules to place a fractional-size image somewhere on the canvas — but the gpt-image-2 output ALREADY contains the composed page layout (text zone, bleed, illustration, all baked in). The legacy positioning produced redundant blank space because the image's own text zone was being placed inside ANOTHER positional offset. Fix: `compose()` now does a single cover-scale + center-crop to fill the canvas. Any 0.5–6% aspect mismatch between gpt-image-2's preset and A4P/A3L is absorbed as edge crop. The per-template `RULES` dict's geometry fields are kept only for backwards-compatible `canvas_for()` lookups (A4P vs A3L).
+
+- **White-flatten at print time.** RGB output, not RGBA. Even when gpt-image-2 returns some residual alpha, `book_canvas.compose()` composites onto a white background and returns RGB. Files open in any image viewer without checker-pattern transparency rendering. Designers overlay text on solid white.
+
+### Files
+
+- `scripts/lib/book_layout_renderer.py` — dropped `transparency_directive`; added text-zone-fill directive ("soft light area, no checker, no grid"); `RenderRequest.transparent_bg` default flipped to `False`.
+- `scripts/lib/fal_client.py` — removed `"background": "transparent"` from `gpt_image_2_book_page` payload.
+- `scripts/lib/book_canvas.py` — `compose()` now does cover-scale + center-crop + flatten-to-white; legacy `position`/`scale`/`margin` rules retained in `RULES` only for backwards-compat `canvas_for()` lookups.
+
+### Invariants updated
+
+CLAUDE.md invariant 9 (and the corresponding "Don't do" line) was: "Book pages are RGBA with transparent BG." Now: "Book pages are opaque RGB on a white-flattened canvas with a painted soft-light text zone." The Book mode row in the decisions table updated accordingly.
+
+### Aspect-fit caveat (worth knowing)
+
+gpt-image-2's `landscape_4_3` preset is 1024×768 (aspect 1.333), A3L is 4961×3508 (aspect 1.414) — a 6% mismatch. The cover-scale crops ~6% off the long edge, which gives a natural full-bleed look (illustration extends to the page edges). For templates where precise composition matters (`split-layout`, `illustrated-border`) this could clip important content; for `full-bleed-with-text-zone`, `full-spread-no-text`, and `spread-scene-plus-spots` it's the right behaviour. If we hit composition-clipping in production, the renderer can be switched to explicit `{width, height}` dims at gpt-image-2's 3840 max-edge limit for aspect-exact output — ~1.5× slower and more expensive per call.
+
 ## 0.6.0 — 2026-05-19
 
 ### Book pipeline overhaul — two-image prompting + standalone book runs

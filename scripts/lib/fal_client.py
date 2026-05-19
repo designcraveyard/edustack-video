@@ -179,11 +179,16 @@ class FalClient:
 
         `size` is mapped to the model's accepted preset by `_gpt_image_2_size`.
         """
+        # Note: prior versions passed `background: "transparent"` here. Since
+        # 0.6.2 we don't — gpt-image-2 misinterprets transparent-BG requests
+        # as "paint a checker pattern", producing visible grid artifacts in
+        # the output. We now produce opaque pages with a "soft light area"
+        # painted in the text zone; book_canvas.compose() flattens to white
+        # at print time.
         refs = [u for u in (image_urls or []) if u][:4]
         payload: dict = {
             "prompt": prompt,
             "image_size": _gpt_image_2_size(size),
-            "background": "transparent",
             "num_images": num_images,
             "output_format": "png",
         }

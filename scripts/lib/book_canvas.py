@@ -64,10 +64,34 @@ def _position_xy(canvas_w: int, canvas_h: int, art_w: int, art_h: int,
     return ((canvas_w - art_w) // 2, (canvas_h - art_h) // 2)
 
 
-def compose(image: Image.Image, template: str) -> Image.Image:
-    """Compose an RGBA illustration onto a transparent A4P or A3L canvas at the
-    position prescribed by the template's rule. Returns a new RGBA image at
-    canvas dims; never modifies the input."""
+def compose(image: Image.Image, template: str, flatten_to_white: bool = True) -> Image.Image:
+    """Scale the gpt-image-2 output to fully cover the template's print canvas
+    (A4P 2480×3508 or A3L 4961×3508 @ 300 DPI), then flatten any transparency
+    onto a solid white page background.
+
+    Since 0.6.1 the gpt-image-2 output IS already the composed page layout
+    (the renderer's two-image prompting includes layout + text-zone composition
+    inside the generated image). The previous behaviour — scaling the image to
+    a fraction of the canvas and positioning it left/right/center with margins
+    — produced redundant blank space because the image's own internal text
+    zone was being placed inside ANOTHER positional offset on the canvas.
+
+    What this function does now:
+      1. Auto-level + mild unsharp on RGB (preserve any alpha).
+      2. Aspect-correct COVER scale to the canvas dims (slightly crop the
+         long edge if gpt-image-2's preset aspect doesn't match A3L/A4P
+         exactly — the mismatch is ~0.5% so the crop is invisible).
+      3. Flatten transparent regions onto solid white (RGB output). Designer
+         can then place voice copy directly on the white text zone in
+         InDesign — no checker-pattern confusion when previewed.
+
+    flatten_to_white=False keeps the alpha channel intact (RGBA output) for
+    workflows that want true transparency. Default is True per user feedback.
+
+    The legacy per-template position/scale/margin rules in RULES are kept
+    only for `canvas_for()` lookups (A4P vs A3L). Their geometry fields are
+    no longer consulted in compose().
+    """
     rule = RULES.get(template)
     if rule is None:
         raise KeyError(f"unknown book template: {template}")
@@ -85,20 +109,29 @@ def compose(image: Image.Image, template: str) -> Image.Image:
     r2, g2, b2 = rgb.split()
     image = Image.merge("RGBA", (r2, g2, b2, a))
 
-    # Scale so the art's long-side equals scale * canvas-long-side - 2*margin.
-    target_long = int(max(canvas_w, canvas_h) * rule.scale) - 2 * rule.margin
-    if target_long <= 0:
-        target_long = max(canvas_w, canvas_h) - 2 * rule.margin
-    src_long = max(image.width, image.height)
-    factor = target_long / src_long if src_long > 0 else 1.0
-    art_w = max(1, int(image.width * factor))
-    art_h = max(1, int(image.height * factor))
-    art = image.resize((art_w, art_h), Image.LANCZOS)
+    # Cover-scale: pick the larger of two scale factors so the image fully
+    # covers the canvas; the slight aspect mismatch crops a few pixels off
+    # the over-long edge.
+    sx = canvas_w / image.width
+    sy = canvas_h / image.height
+    scale = max(sx, sy)
+    scaled_w = int(round(image.width * scale))
+    scaled_h = int(round(image.height * scale))
+    scaled = image.resize((scaled_w, scaled_h), Image.LANCZOS)
 
-    canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
-    x, y = _position_xy(canvas_w, canvas_h, art_w, art_h, rule.position, rule.margin)
-    canvas.alpha_composite(art, (x, y))
-    return canvas
+    # Center-crop to the canvas.
+    crop_x = (scaled_w - canvas_w) // 2
+    crop_y = (scaled_h - canvas_h) // 2
+    cropped = scaled.crop((crop_x, crop_y, crop_x + canvas_w, crop_y + canvas_h))
+
+    if flatten_to_white:
+        white = Image.new("RGB", (canvas_w, canvas_h), (255, 255, 255))
+        # alpha_composite expects RGBA on RGBA; do it on RGBA then convert.
+        bg = Image.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 255))
+        bg.alpha_composite(cropped)
+        return bg.convert("RGB")
+
+    return cropped
 
 
 def canvas_for(template: str) -> str:
