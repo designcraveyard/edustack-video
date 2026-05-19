@@ -115,8 +115,23 @@ def main() -> int:
     el = ElevenLabsClient(cfg.elevenlabs_key, logger=log, run_id=state.run_id)
     voice_id = brief.get("voice_id") or "21m00Tcm4TlvDq8ikWAM"
     voice_name = brief.get("voice_name") or ""
-    model_id = ((cfg.models.get("vo") or {}).get("model_id")) or "eleven_v3"
     output_format = ((cfg.models.get("vo") or {}).get("output_format")) or "mp3_44100_192"
+
+    # eleven_v3 is REQUIRED — audio tags (`[curious]`, `[pause]`, etc.) only
+    # work with this model. Older models (multilingual_v2, flash_v2_5) speak
+    # the tags literally, which is what produced the "I'm hearing the word
+    # curious / pause" regression. We force-override any other value in the
+    # user's models.yaml because the failure mode (tag words spoken aloud in
+    # the final video) is bad enough to justify ignoring the config.
+    configured_model = ((cfg.models.get("vo") or {}).get("model_id")) or "eleven_v3"
+    model_id = "eleven_v3"
+    if configured_model != model_id:
+        log.log(state.run_id, "vo", "warn",
+                f"models.yaml vo.model_id={configured_model!r} is not eleven_v3; "
+                f"forcing eleven_v3 because audio tags only work with v3. "
+                f"Update <output>/.config/models.yaml to silence this warning.")
+        print(f"[vo] WARN: configured model_id={configured_model!r} overridden "
+              f"to eleven_v3 (audio tags only work with v3)", file=sys.stderr)
 
     # Persist the audio prompt locally BEFORE the API call, so a failed run still
     # leaves the user with the exact text that was about to be sent.

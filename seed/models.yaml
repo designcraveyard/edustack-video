@@ -87,10 +87,13 @@ vision_analysis:
 vo:
   provider: elevenlabs
   default_voice_id: 21m00Tcm4TlvDq8ikWAM
-  # ElevenLabs v3 — pinned. Required for multilingual phonemizing (Hinglish in
-  # Devanagari, Tamil/Bengali in native scripts) and for audio-tag rendering.
-  # Do NOT downgrade to multilingual_v2 / flash without re-verifying that
-  # Hinglish narration in Devanagari renders correctly.
+  # ElevenLabs v3 — PINNED. Required for audio-tag rendering ([curious],
+  # [pause], etc.) AND multilingual phonemizing (Hinglish in Devanagari,
+  # Tamil / Bengali in native scripts). Older models speak audio tags
+  # LITERALLY — you'll hear "curious" and "pause" spoken aloud in the
+  # final audio. phase_vo.py FORCE-OVERRIDES any other model_id at
+  # runtime with a loud warning; changing this line below does nothing
+  # for the actual API call, it only silences the warning.
   model_id: eleven_v3
   output_format: mp3_44100_192
 

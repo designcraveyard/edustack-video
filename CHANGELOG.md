@@ -2,6 +2,19 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.2 — 2026-05-19
+
+### Hotfix: force eleven_v3 for VO regardless of config
+
+Users on stale `<output>/.config/models.yaml` (generated before vo was pinned to `eleven_v3`) were hitting a bad failure mode: 0.4.1's tagged narration like `[curious] Why does a plant droop? [pause] Because…` was being sent to `eleven_multilingual_v2`, which **speaks audio tags literally**. The final audio contained the words "curious" and "pause" spoken aloud.
+
+Setup never overwrites an existing `models.yaml` (intentional — preserves user tweaks), so seed updates to `model_id: eleven_v3` didn't reach existing installs.
+
+- **[scripts/phase_vo.py](scripts/phase_vo.py)**: `model_id` is now force-overridden to `eleven_v3` at runtime. Any other value in the user's models.yaml triggers a loud warning in logs + stderr but the API call uses `eleven_v3` regardless. Failure mode is too bad to tolerate silently for users with stale configs.
+- **[seed/generation-defaults.json](seed/generation-defaults.json)**: legacy vo defaults (`eleven_flash_v2_5`, `eleven_multilingual_v2`) replaced with `eleven_v3` across all tiers + a `_warning` comment noting the runtime force-override.
+- **[seed/models.yaml](seed/models.yaml)**: comment updated to spell out that audio tags are spoken literally on older models and that `phase_vo.py` overrides regardless.
+- **[skills/setup/SKILL.md](skills/setup/SKILL.md)**: noted the "setup doesn't overwrite existing models.yaml" gotcha + the runtime override for vo, plus how to recover (`rm <output>/.config/models.yaml` and re-run setup).
+
 ## 0.4.1 — 2026-05-19
 
 ### Skill output specs tightened across all five generation phases

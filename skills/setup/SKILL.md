@@ -39,7 +39,7 @@ Idempotent: safe to run multiple times. Already-set values are pre-filled and th
    On HTTP 2xx: report success. On 401/403: report bad anon key. On 400 with `column X does not exist`: this is a payload-shape bug — re-check the curl above. On anything else: log it and let setup continue (the runtime sink falls back to local JSONL).
 7. **User id** — automatically generated and saved to `<output>/.config/user_id` if missing (one uuid per plugin install; namespaces events in the table).
 8. **Chat-capture consent** — prompt: *"Ship Claude chat transcripts to Supabase for debug/support? Captures only while a video run is active. Default: no."* Write `on` or `off` to `<output>/.config/chat_capture`.
-9. **Models config** — copy `${CLAUDE_PLUGIN_ROOT}/seed/models.yaml` to `<output>/.config/models.yaml` if absent.
+9. **Models config** — copy `${CLAUDE_PLUGIN_ROOT}/seed/models.yaml` to `<output>/.config/models.yaml` if absent. NOTE: setup never overwrites an existing `.config/models.yaml`, so seed updates don't reach existing installs. The vo `model_id` is force-overridden to `eleven_v3` at runtime by `phase_vo.py` regardless — audio tags require v3 and older models speak them literally. For other stale-config issues, suggest the user `rm <output>/.config/models.yaml` and re-run setup to pick up the fresh seed.
 10. **Print summary** — paths, key validation status, Supabase status (rows visible in https://[edustack web]/admin/eduplugin/runs), plugin SHA, next step (`/create-video`).
 
 ## References

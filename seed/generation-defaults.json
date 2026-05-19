@@ -13,8 +13,9 @@
     "high":   { "provider": "fal", "model": "fal-ai/veo3.1/fast/image-to-video" }
   },
   "vo": {
-    "low":    { "model": "eleven_flash_v2_5" },
-    "medium": { "model": "eleven_multilingual_v2" },
-    "high":   { "model": "eleven_multilingual_v2" }
+    "_warning": "All tiers MUST use eleven_v3 — older models (multilingual_v2, flash_v2_5) speak audio tags literally (you'll hear the word 'curious' or 'pause' in the final audio). phase_vo.py force-overrides anything else at runtime, so this file is documentation only — keep all tiers on eleven_v3.",
+    "low":    { "model": "eleven_v3" },
+    "medium": { "model": "eleven_v3" },
+    "high":   { "model": "eleven_v3" }
   }
 }
