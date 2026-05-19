@@ -392,6 +392,7 @@ form.addEventListener("submit", async (e) => {
     ambient_category: fd.get("ambient_category"),
     subtitles_enabled: form.subtitles_enabled.checked,
     annotations_enabled: form.annotations_enabled.checked,
+    dialogues_enabled: form.dialogues_enabled.checked,
     voice_id: fd.get("voice_id"),
     voice_name: fd.get("voice_name"),
     notes: fd.get("notes") || "",

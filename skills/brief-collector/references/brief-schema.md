@@ -20,6 +20,7 @@ Mirrors the Edustack `runs.brief` JSONB column so projects can be cross-ported b
   "ambient_category": "ambient_calm",  // "ambient_calm" | "ambient_playful" | "ambient_drama" | "none"
   "subtitles_enabled": true,
   "annotations_enabled": false,
+  "dialogues_enabled": false,          // false (default) = SFX/ambient only, characters silent at clip level. true = clip prompt may include in-character dialogue and lip-sync motion.
   "voice_id": "21m00Tcm4TlvDq8ikWAM",  // ElevenLabs voice id; fetched from EL on form load
   "notes": ""                          // free-text stylistic guidance
 }
@@ -31,6 +32,8 @@ Mirrors the Edustack `runs.brief` JSONB column so projects can be cross-ported b
 - `character_mode == "none"` → Phase 3a is **skipped**; `characters/description_block.md` is written instead.
 - `image_mode == "storyboard_panel"` → uses gpt-image-2 to produce one multi-panel sheet, then slices locally.
 - `image_mode == "per_keyframe"` → uses Nano Banana 2 per beat (recommended for character consistency).
+- `character_mode == "human"` → Phase 4 clips route through `models.yaml:video_i2v_human` (Wan 2.7 I2V on fal). Other modes route through `models.yaml:video_i2v` (Seedance 1.5 Pro). Routing is in `scripts/phase_clips._resolve_video_stage`.
+- `dialogues_enabled == false` (default) → Phase 4 injects a verbatim "no dialogue / no mouth movement for speech" audio direction into every clip prompt. Without this, Seedance hallucinates Mandarin and Wan 2.7 invents lip-sync motion.
 
 ## Seed values
 

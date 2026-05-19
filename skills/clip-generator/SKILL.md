@@ -23,8 +23,10 @@ description: Use during Phase 4 of a video run. Generates one Seedance 1.5 Pro i
 
 2. **Invoke `phase_clips.py` — do NOT call fal inline.** This is the canonical path. The script:
    - reads storyboard.json (incl. structured `anchors`)
+   - routes the i2v model by `brief.character_mode`: `"human"` → `models.yaml:video_i2v_human` (Wan 2.7 I2V on fal, 720p default); anything else → `models.yaml:video_i2v` (Seedance 1.5 Pro, 1080p default)
+   - injects a dialogue-suppression audio direction into every prompt unless `brief.dialogues_enabled === true` (default off — characters stay silent, SFX/ambient only at the clip layer; the stitcher still lays in VO + music)
+   - fans clip generation across `<stage>.concurrency` threads (default 4) — beats are independent
    - uploads each keyframe via `fal_client.upload_file()` (NOT a stale CDN URL)
-   - calls Seedance with `resolution: "1080p"` (NOT `aspect_ratio`)
    - runs the Claude-authored validation prompt through `fal-ai/openrouter/router/video`
    - retries up to 2× with corrective addenda
    - saves zero-padded `clip_NN.mp4` + `clip_NN_analysis.json`

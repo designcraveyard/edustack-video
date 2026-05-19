@@ -148,11 +148,16 @@ For each character involved in the video, include:
 
 - **Role in the video**: one sentence
 - **Personality**: 2–4 sentence description of personality and demeanor
-- **Voice and tone**: how they speak — register, pace, accent if any, energy
+- **Voice and tone**: how they speak — register, pace, accent if any, energy. **OMIT this bullet entirely when `dialogues_enabled` is false** — silent characters don't need a vocal spec, and including one tempts downstream prompts to inject speech.
 - **Looks**: visual description — silhouette, palette, signature features
 
 If character mode is off, write a single line:
 `Character mode: OFF — narration only.`
+
+If character mode is on but `dialogues_enabled` is false, add one explicit
+line at the top of this section:
+`Dialogue: OFF — characters are visually present but silent. Express their
+behaviour through narration + on-screen action only.`
 
 ## Sound
 
@@ -165,12 +170,35 @@ If character mode is off, write a single line:
 
 A single table where every row is one scene and every sub-section is a
 column. All time-sensitive elements — transitions, keyframes, narration
-cues, character dialogue, annotations — MUST carry [M:SS] timestamps
-relative to the video start. Pipe characters inside cells must be escaped
-as \|.
+cues, character dialogue (when enabled), annotations (when enabled) — MUST
+carry [M:SS] timestamps relative to the video start. Pipe characters inside
+cells must be escaped as \|.
+
+**Read these brief flags BEFORE drafting the table:**
+
+- `brief.lesson.character_dialogues` (a.k.a. `dialogues_enabled` in the
+  edustack-video plugin) — when `false` (the default), DO NOT include the
+  Dialogue column at all and DO NOT write any spoken character lines
+  anywhere in the script. Characters are visually present but silent.
+  Express their behaviour through narration + visual action only. Only
+  include the Dialogue column when this flag is `true`.
+- `brief.lesson.annotations_enabled` — when `false`, DO NOT include the
+  Annotations column at all. Only include it when `true`.
+
+So the table has one of these column sets depending on the flags:
+
+When BOTH dialogues_enabled AND annotations_enabled are true:
 
 | # | Scene Title | Time Range | Dur | Clips | Transition In | Keyframes | Narration | Dialogue | Annotations | Transition Out |
 |---|-------------|-----------|-----|-------|--------------|-----------|-----------|----------|-------------|---------------|
+
+When dialogues_enabled=false AND annotations_enabled=false (most common, default):
+
+| # | Scene Title | Time Range | Dur | Clips | Transition In | Keyframes | Narration | Transition Out |
+|---|-------------|-----------|-----|-------|--------------|-----------|-----------|---------------|
+
+Drop / keep columns the same way for the two mixed combinations. Never
+include a column you are going to fill entirely with `(none)`.
 
 Column rules:
 
@@ -187,12 +215,14 @@ Column rules:
 - **Narration** — exact VO copy with cue timestamp for each sentence, e.g.
   `[0:00] "क्या आपने कभी..."`<br>`[0:05] "बारिश में आसमान रंगीन..."`
   Write narration verbatim — downstream VO agents read it exactly.
-- **Dialogue** — only when character mode is on. Format:
+- **Dialogue** — INCLUDE this column ONLY when both character mode is on
+  AND `dialogues_enabled` is true. Format:
   `[0:04] Gora: "Their line."`
-  Write `(none)` if the scene is narration-only.
-- **Annotations** — only when annotations are enabled in the brief. Format:
-  `[0:05] "Label text" — top-right`
-  Write `(none)` if no annotations.
+  Write `(none)` if a specific scene is narration-only. If the brief flag
+  is false, omit this column entirely (do not write a column of `(none)`s).
+- **Annotations** — INCLUDE this column ONLY when `annotations_enabled` is
+  true. Format: `[0:05] "Label text" — top-right`. If the brief flag is
+  false, omit this column entirely.
 - **Transition Out** — description with timestamp of the outgoing
   transition, e.g. `[0:22] Cross-dissolve → Scene 3`
   For the final scene write the outro: `[M:SS] Fade to black — end card`.

@@ -2,6 +2,23 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.0 — 2026-05-18
+
+### Human-character video path
+
+- **Phase 4 now routes by `brief.character_mode`.** When `character_mode == "human"` the clip generator uses `fal-ai/wan/v2.7/image-to-video` (Wan 2.7) at 720p by default; Seedance 1.5 Pro continues to handle `abstract` and `none`. Smoke-validated 2026-05-18: 4 keyframes × 4 s @ 720p, identity locked, total spend ~$1.60. Wan 2.7's payload shape matches Seedance (prompt + image_url + duration + resolution), so the runner is a single code path — only the model slug + resolution differ. Routing in [`scripts/phase_clips._resolve_video_stage`](scripts/phase_clips.py).
+- **New `models.yaml:video_i2v_human` stanza** with `concurrency: 4` and `resolution: "720p"`. The existing `video_i2v` stanza also gains `concurrency: 4`. Users can override per-stage.
+
+### Concurrent clip generation
+
+- **Phase 4 fans clip gen across a ThreadPoolExecutor.** Each beat's gen + QA + auto-retry loop is independent (no shared state), so beats run in parallel. Default 4 workers, read from `models.yaml:<stage>.concurrency`. New `--concurrency` flag on `phase_clips.py` overrides. Cuts wall-clock for an 8-beat video from ~8× per-beat time to ~2× — significant.
+
+### Dialogue opt-in (default off)
+
+- **New `brief.dialogues_enabled` field, default `false`.** When false (the default), `phase_clips.py` injects a verbatim audio-direction block into every clip prompt: "no dialogue, no speech, no voice-over, no humming, no singing. Characters remain silent — no mouth movement for speech." Without this, Seedance hallucinates Mandarin and Wan 2.7 occasionally invents lip-sync motion. The stitcher still lays in narration VO + ambient music — this only suppresses model-invented in-clip speech.
+- **Brief-collector form gains a Dialogues checkbox** in the same row as Subtitles and Annotations. Schema mirrored in [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md). The Edustack web platform must mirror this field when porting.
+- **Script writer also honours the flag.** [seed/prompts/script-writer.md](seed/prompts/script-writer.md) now drops the Dialogue column entirely (and the Cast block's "Voice and tone" bullet) when `dialogues_enabled` is false — silent characters don't need a vocal spec, and dialogue lines that downstream phases would ignore no longer clutter the script. Same treatment for the Annotations column when `annotations_enabled` is false.
+
 ## 0.2.0 — 2026-05-17
 
 ### Book mode (post-video, optional)
