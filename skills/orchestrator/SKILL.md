@@ -19,7 +19,11 @@ The single owner of an `edustack-video` run. Reads + writes `<run-dir>/run.json`
 2. Compute or pick the run directory. Pattern: `<output>/runs/YYYY-MM-DD-<topic-slug>-NN`.
 3. If `<run-dir>/run.json` missing → create empty state. If present → load.
 4. If `<run-dir>/brief.json` missing → invoke `brief-collector` skill.
-5. From `run.json.next_phase`, invoke the corresponding skill.
+5. **Chapter content gate.** After brief-collector returns, validate `brief.chapter_source`:
+   - `script_mode == "word_to_word"` and `chapter_source == null` → HALT. Ask the user in chat for the chapter content (paste, file path, or URL); when they reply, write the resolved value back into `brief.json` and continue. Do NOT enter Phase 1 without it.
+   - `script_mode == "standard"` and `chapter_source == null` → soft-warn in chat: "No chapter content provided — the script will be written from general knowledge about the topic and will likely be thinner than chapter-grounded output. Reply `paste` / `path` / `url` to add one now, or `skip` to proceed degraded." Default to `skip` if no reply within the same turn.
+   - When the user provides chapter content interactively, persist as: `text` → write `<run-dir>/source/chapter.txt` and set `chapter_source = {kind: "text", ref: "<absolute path>"}`; `path` → set `{kind: "file", ref: "<abs path>"}`; `url` → set `{kind: "url", ref: "<url>"}`. Then save `brief.json`.
+6. From `run.json.next_phase`, invoke the corresponding skill.
 6. After each phase: write `phase_completed` to `run.json`, surface artifact paths in chat, and (unless this is a no-gate phase) **stop** and wait for the user.
 7. Parse user reply: `approve` → advance; `regen ...` → invoke `/create-video-regen` flow; anything else → ask for clarification.
 

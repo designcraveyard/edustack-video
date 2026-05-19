@@ -141,6 +141,22 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const brief = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+
+      // Persist a stable on-disk copy of pasted chapter text so the
+      // script-writer has a consistent file to read regardless of input
+      // method. URL + file-path kinds are resolved lazily by Phase 1.
+      const src = brief.chapter_source;
+      if (src && src.kind === "text" && typeof src.ref === "string" && src.ref.trim()) {
+        const sourceDir = join(runDir, "source");
+        await mkdir(sourceDir, { recursive: true });
+        const chapterPath = join(sourceDir, "chapter.txt");
+        await writeFile(chapterPath, src.ref, "utf8");
+        // Rewrite ref to the on-disk path so phase_script reads a file
+        // either way. Keep kind="text" — the script-writer skill knows
+        // both forms.
+        brief.chapter_source = { kind: "text", ref: chapterPath };
+      }
+
       await writeFile(join(runDir, "brief.json"), JSON.stringify(brief, null, 2));
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true }));

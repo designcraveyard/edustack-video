@@ -12,7 +12,10 @@ Mirrors the Edustack `runs.brief` JSONB column so projects can be cross-ported b
 
   "script_mode": "standard",           // "standard" | "word_to_word"
   "duration_seconds": 60,              // 15|30|45|60|90|120 — omitted when script_mode == word_to_word
-  "chapter_source": null,              // { "kind": "file" | "text" | "url", "ref": "<path or url or inline text>" } when word_to_word
+  "chapter_source": {                  // collected in BOTH modes; required for word_to_word, optional-but-recommended for standard
+    "kind": "text",                    // "text" | "file" | "url"
+    "ref": "/path/to/source/chapter.txt"
+  },
 
   "character_mode": "human",           // "human" | "abstract" | "none"
   "image_mode": "per_keyframe",        // "storyboard_panel" | "per_keyframe"
@@ -28,7 +31,9 @@ Mirrors the Edustack `runs.brief` JSONB column so projects can be cross-ported b
 
 ## Validation rules
 
-- `script_mode == "word_to_word"` REQUIRES `chapter_source` and IGNORES `duration_seconds`.
+- `chapter_source` is collected in **both** modes (since 0.4.0). Three input forms: `{kind: "text", ref: "<absolute path to chapter.txt>"}` (server persists pasted text to `<run-dir>/source/chapter.txt`), `{kind: "file", ref: "<absolute path on user machine>"}`, or `{kind: "url", ref: "<http/https>"}`. The script-writer resolves all three.
+- `script_mode == "word_to_word"` REQUIRES `chapter_source` (form blocks submit otherwise) and IGNORES `duration_seconds`.
+- `script_mode == "standard"` accepts `chapter_source: null`, but the script writer marks the output `grounded: false` and falls back to general-knowledge writing — strongly degraded path.
 - `character_mode == "none"` → Phase 3a is **skipped**; `characters/description_block.md` is written instead.
 - `image_mode == "storyboard_panel"` → uses gpt-image-2 to produce one multi-panel sheet, then slices locally.
 - `image_mode == "per_keyframe"` → uses Nano Banana 2 per beat (recommended for character consistency).

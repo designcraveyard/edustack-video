@@ -2,6 +2,28 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.0 — 2026-05-19
+
+### Script writer now emits the rich structured format
+
+The plugin's [skills/script-writer/SKILL.md](skills/script-writer/SKILL.md) previously specified a deliberately minimal output (frontmatter + `[BEAT N]` blocks + `<!-- visual: ... -->` comments) — no Cast block, no Strategy section, no Scene Timeline. But [scripts/lib/script_io.py](scripts/lib/script_io.py) has a `parse_cast()` function expecting `## Cast` / `### {name}` / Role/Personality/Voice/Looks bullets sourced from the seed prompt format. The mismatch silently made `script.cast == []` for every run, which forced [character-sheet-generator](skills/character-sheet-generator/) to invent characters from `brief.topic` + `brief.notes` — the root cause of character drift across runs.
+
+- **Skill rewrite.** The skill now requires Strategy + Cast (when characters are on) + Sound + Scene Timeline (table) + Beats sections, in that order. Frontmatter expanded with `character_mode`, `dialogues_enabled`, `annotations_enabled`, `grounded`, and `source_chapter` so downstream phases can read brief-state directly off the script.
+- **Cast block format pinned.** `### {Name}` headers with bullet sub-sections Role / Personality / Voice and tone / Looks — matching what `parse_cast()` already parses. "Voice and tone" is dropped when `dialogues_enabled == false`. The Looks bullet is the load-bearing field — pasted verbatim into Phase 3a's gpt-image-2 prompt.
+- **Scene Timeline column set is brief-flag-driven.** Dialogue and Annotations columns appear only when their corresponding flag is true (no more half-empty `(none)` columns).
+- **Beats and Scene Timeline must agree.** Same scene count, same narration text, same timing. Beats stay as the machine-parsed source for vo / storyboard / clip phases; Timeline is the human-readable mirror.
+- **Common-failures section** added so Claude doesn't slide back into emitting the thin format.
+
+### Chapter content collected in both script modes
+
+Pre-0.4.0, `chapter_source` was only collected for `script_mode == "word_to_word"`. In `"standard"` mode the script writer fell back to general knowledge about `topic` — which is why standard-mode scripts were thin and occasionally hallucinated. Now:
+
+- **Brief-collector form always asks for chapter content** (text paste / URL / absolute file path). Strongly recommended in `standard` mode, required in `word_to_word`. The submit handler blocks word-to-word without a source.
+- **Server persists pasted text to `<run-dir>/source/chapter.txt`** so phase_script has a stable on-disk artifact regardless of input method. The brief's `chapter_source.ref` is rewritten to the file path before `brief.json` is saved. URL and file-path kinds are resolved lazily by Phase 1.
+- **Orchestrator gates entry to Phase 1.** When `chapter_source` is missing in word-to-word mode the orchestrator halts and asks the user in chat (paste / path / url), persists the answer back into `brief.json`, then proceeds. In standard mode, missing source is a soft-warn — the user can `skip` to the degraded general-knowledge path.
+- **Script-writer skill resolves all three `chapter_source.kind` values** (`text` / `file` / `url`) and emits a `grounded: true|false` frontmatter flag on `script.md` so downstream phases and reviewers can tell whether the script was anchored to source material.
+- **Schema mirrored** in [skills/brief-collector/references/brief-schema.md](skills/brief-collector/references/brief-schema.md). The Edustack web platform must mirror this when porting — `chapter_source` is no longer conditional on script_mode.
+
 ## 0.3.0 — 2026-05-18
 
 ### Human-character video path

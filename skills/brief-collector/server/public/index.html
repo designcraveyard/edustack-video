@@ -64,13 +64,14 @@
             <select name="duration_seconds" data-options="duration_seconds"></select>
           </label>
         </div>
-        <div data-show-when="script_mode=word_to_word">
-          <label>Chapter source (PDF, text file, or URL)
-            <input type="file" name="chapter_file" accept=".pdf,.txt,.md" />
-            <textarea name="chapter_text" rows="3" placeholder="…or paste the chapter text here"></textarea>
-            <input type="url" name="chapter_url" placeholder="…or paste a URL" />
-          </label>
-        </div>
+
+        <label>Chapter content
+          <small class="hint" data-show-when="script_mode=standard">Optional but strongly recommended — without it the script writer falls back to general knowledge about the topic and tends to drift.</small>
+          <small class="hint" data-show-when="script_mode=word_to_word">Required — the script will read this verbatim.</small>
+          <textarea name="chapter_text" rows="6" placeholder="Paste the chapter / lesson text here. Multiple paragraphs are fine."></textarea>
+          <input type="url" name="chapter_url" placeholder="…or paste a URL to fetch (PDFs and HTML pages both work)" />
+          <input type="text" name="chapter_path" placeholder="…or an absolute file path on this machine (PDF / .txt / .md)" />
+        </label>
       </fieldset>
 
       <fieldset>

@@ -383,10 +383,18 @@ form.addEventListener("submit", async (e) => {
     aspect: fd.get("aspect"),
     script_mode: fd.get("script_mode"),
     duration_seconds: fd.get("script_mode") === "standard" ? Number(fd.get("duration_seconds")) : null,
-    chapter_source: fd.get("script_mode") === "word_to_word"
-      ? { kind: fd.get("chapter_text") ? "text" : fd.get("chapter_url") ? "url" : "file",
-          ref: fd.get("chapter_text") || fd.get("chapter_url") || (fd.get("chapter_file")?.name ?? null) }
-      : null,
+    chapter_source: (() => {
+      // Collected in BOTH modes now. Required for word_to_word (orchestrator
+      // gates on this); strongly recommended for standard (without it the
+      // script writer falls back to general knowledge and drifts).
+      const text = (fd.get("chapter_text") || "").trim();
+      const url = (fd.get("chapter_url") || "").trim();
+      const path = (fd.get("chapter_path") || "").trim();
+      if (text) return { kind: "text", ref: text };
+      if (url) return { kind: "url", ref: url };
+      if (path) return { kind: "file", ref: path };
+      return null;
+    })(),
     character_mode: fd.get("character_mode"),
     image_mode: fd.get("image_mode"),
     ambient_category: fd.get("ambient_category"),
@@ -397,6 +405,11 @@ form.addEventListener("submit", async (e) => {
     voice_name: fd.get("voice_name"),
     notes: fd.get("notes") || "",
   };
+
+  if (brief.script_mode === "word_to_word" && !brief.chapter_source) {
+    status.textContent = "Word-for-word needs chapter content — paste the text, a URL, or a file path.";
+    return;
+  }
 
   const bookCount = parseInt(bookCountEl.value || "0", 10);
   if (bookCount > 0) {
