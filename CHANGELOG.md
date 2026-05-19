@@ -2,6 +2,19 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.5.0 — 2026-05-19
+
+### New skill + command: book from keyframes
+
+Users wanted to build a print-ready picture book using the **existing storyboard keyframes** from a completed video run — preserving visual continuity between the video and the book, and skipping the cost of fresh gpt-image-2 generation. The default book branch (Phase B1–B3, gated on `brief.book.page_count_target > 0`) always generated new illustrations. Now there's an alternative standalone path.
+
+- **New slash command** `/create-book-from-keyframes` — post-video entry point. Invokes the new skill.
+- **New skill** `skills/book-from-keyframes/SKILL.md` — chat-driven page assignment. Lists available keyframes from `<run-dir>/storyboard/keyframes/`, walks the user through which keyframe → which page → which template → what book voice copy → BG removal yes/no per page. Saves the assignment to `<run-dir>/book/from_keyframes.config.json` (reviewable, re-runnable).
+- **New Python phase** [scripts/phase_book_from_keyframes.py](scripts/phase_book_from_keyframes.py) — reads the config, runs `fal-ai/birefnet/v2` on pages with `remove_background: true`, copies-with-RGBA-convert for the others, writes `book/plan.json` in the same shape Phase B3 expects, and (with `--run-print-prep`) auto-invokes `phase_book_print_prep` to compose the final A4P / A3L canvases at 300 DPI.
+- **Mutually exclusive** with the default `brief.book.page_count_target > 0` flow on the same run (both write to `<run-dir>/book/`). The skill names the conflict and tells the user to pick one path per run.
+- **Per-page BG-removal defaults** documented per template (full-bleed templates default to `false` to preserve scene context; vignette / split / spots templates default to `true` for clean cutouts on white).
+- Registered in `plugin.json` under `commands[]` and `skills[]`.
+
 ## 0.4.2 — 2026-05-19
 
 ### Hotfix: force eleven_v3 for VO regardless of config

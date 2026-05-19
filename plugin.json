@@ -1,6 +1,6 @@
 {
   "name": "edustack-video",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "Educational explainer video pipeline plugin. fal.ai + ElevenLabs, 5-phase video generation with 4 chat-driven review gates, MoviePy stitching, VPS observability — plus an optional Book branch that produces curated transparent-BG illustrations at A4P/A3L 300 DPI via fal-ai/gpt-image-2.",
   "homepage": "https://github.com/designcraveyard/edustack-video",
   "license": "MIT",
@@ -11,6 +11,7 @@
     "commands/create-video-regen.md",
     "commands/create-video-support.md",
     "commands/create-book-regen.md",
+    "commands/create-book-from-keyframes.md",
     "commands/test-logs.md",
     "commands/plugin-update.md",
     "commands/plugin-info.md",
@@ -28,7 +29,8 @@
     "skills/stitcher",
     "skills/book-plan",
     "skills/book-render",
-    "skills/book-print-prep"
+    "skills/book-print-prep",
+    "skills/book-from-keyframes"
   ],
   "hooks": {
     "PostToolUse": [
