@@ -2,6 +2,48 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.1 — 2026-05-19
+
+### Skill output specs tightened across all five generation phases
+
+0.4.0 fixed the script-writer skill (the worst offender). 0.4.1 applies the same pattern — inline rich Output spec, hard preconditions, quality bar, common-failure-modes section — to the other four Claude-driven skills. Same root cause across the board: skill specs were loose, rich references existed but were loaded on demand, and whether Claude followed them was non-deterministic. Diligent runs produced solid output; lazy runs produced thin output. Net effect: ~30% variance in output quality across runs of the same brief.
+
+The fix kills that variance. Five skills changed:
+
+- **[skills/vo-generator/SKILL.md](skills/vo-generator/SKILL.md)** — was emitting plain TTS sometimes. Now mandates **audio tag density: ≥6 tags per minute of narration**, with required positions (emotional tag on hook, pacing tag at each scene transition, emphasis before reveals, emotional resolve on recap). Inline taxonomy summary so Claude doesn't need to load the reference. New output: `vo_prompt.md` — the exact tagged text sent to ElevenLabs, reviewable before the API call. Tag-count check happens BEFORE the API call; failing prompts get regenerated, not sent.
+
+- **[skills/clip-generator/SKILL.md](skills/clip-generator/SKILL.md)** — was sometimes skipping per-clip validation prompts, letting `phase_clips.py` fall back to a generic QA template, letting drift slip through. Authoring `clip_NN.validation.txt` for every beat is now a **hard precondition** — the skill's pre-flight check verifies all files exist before invoking the runner. Inline meta-template summary covers tick-spacing, character-identity locks, anchor cross-references. Common failures section names the generic-fallback signature so it's caught at log review.
+
+- **[skills/storyboard-generator/SKILL.md](skills/storyboard-generator/SKILL.md)** — was sometimes skipping anchor authoring on split-screen beats, producing the HERBA/CARNI side-swap class of bug in the resulting clips. Authoring `anchors[]` for any beat with two-or-more named spatial elements is now a **hard requirement** with explicit trigger phrases and a flowchart. New reference [skills/storyboard-generator/references/anchor-authoring.md](skills/storyboard-generator/references/anchor-authoring.md) — full schema, aspect-ratio rules (9:16 must use top/bottom, never left/right), good/bad examples, integration with `phase_clips.py:_anchors_block()`.
+
+- **[skills/stitcher/SKILL.md](skills/stitcher/SKILL.md)** — was sometimes emitting all-hard-cut stitch plans, producing choppy video. Now requires per-beat `transition_reasoning` in `stitch_plan.json`, mandates ≤60% `cut` transitions, includes the transition rules table inline (motion-intensity-driven). `stitch_plan.json` must be written BEFORE the render so it's reviewable.
+
+- **[skills/script-writer/references/educational-script-structure.md](skills/script-writer/references/educational-script-structure.md)** — was a 49-line stub with one example, no coverage of Cast / Sound / Scene Timeline. Beefed up to ~200 lines: full skeleton with a worked 60s photosynthesis example, frontmatter rules table, per-section rules, hook patterns by class level, beat count & pacing by duration target, word_to_word mode notes.
+
+- **[skills/script-writer/references/storytelling-best-practices.md](skills/script-writer/references/storytelling-best-practices.md)** — was a 37-line stub with one-liner rules. Beefed up to 10 rules, each with bad-vs-good examples. Adds: stage-direction-in-narration anti-pattern, throughline character guidance, numbers-and-units pacing for kid-explainer register.
+
+### Recommended client config
+
+The above fixes work with any Claude model, but reasoning effort matters. For client laptops:
+- Model: `claude-sonnet-4-6` (great for skill-following structured output at sensible cost).
+- Reasoning effort: **high**.
+- The token cost is rounding error next to image gen (₹15+/call) and video gen (₹100+/call).
+
+### Files touched
+
+```
+plugin.json (version bump)
+CHANGELOG.md (this entry)
+CLAUDE.md (architecture decisions table — note skill-spec tightening invariant)
+skills/vo-generator/SKILL.md
+skills/clip-generator/SKILL.md
+skills/storyboard-generator/SKILL.md
+skills/storyboard-generator/references/anchor-authoring.md (NEW)
+skills/stitcher/SKILL.md
+skills/script-writer/references/educational-script-structure.md
+skills/script-writer/references/storytelling-best-practices.md
+```
+
 ## 0.4.0 — 2026-05-19
 
 ### Script writer now emits the rich structured format
