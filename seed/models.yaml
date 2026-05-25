@@ -59,10 +59,10 @@ character_sheet:
 video_i2v:
   model: fal-ai/bytedance/seedance/v1.5/pro/image-to-video
   default_duration_s: 5
-  # resolution: "1080p"            # enum: 480p, 720p, 1080p. Aspect inherited from keyframe.
-  # Concurrency knob: phase_clips fans clip gen across this many threads.
-  # Each call is independent (no shared state), so 4 is safe on Seedance too.
-  concurrency: 4
+  # resolution: Seedance is HARD-PINNED to 720p in phase_clips.py
+  # (_resolution_for). Any value set here is IGNORED for Seedance.
+  # phase_clips generates clips strictly sequentially — there is no
+  # concurrency knob anymore.
 
 # Human-character path. Seedance i2v + most other video models distort or
 # reject real human faces in reference keyframes. Wan 2.7 explicitly supports
@@ -76,8 +76,7 @@ video_i2v:
 video_i2v_human:
   model: fal-ai/wan/v2.7/image-to-video
   default_duration_s: 4
-  resolution: "720p"               # enum: 720p, 1080p
-  concurrency: 4
+  resolution: "720p"               # enum: 720p, 1080p (Wan honours this; Seedance does not)
 
 vision_analysis:
   endpoint: fal-ai/openrouter/router/video   # video-native QA for clips

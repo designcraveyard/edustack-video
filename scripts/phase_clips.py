@@ -1,17 +1,19 @@
 """Phase 4 — Clip generation.
 
 Per-beat image-to-video, seeded by each beat's keyframe and timed by
-vo_timeline.beats[N].duration_ms. Each clip is analyzed by Gemini 2.5 Pro
-frame-by-frame; up to 2 auto-corrective regens before escalating to Gate 4.
+vo_timeline.beats[N].duration_ms. Each clip is generated ONCE and analyzed by
+Gemini 2.5 Pro frame-by-frame. Clips are never auto-regenerated; a `major`
+verdict is flagged via `needs_review` in summary.json and surfaced at Gate 4
+for the user to decide.
 
 Model routing (set in <output>/.config/models.yaml):
-  brief.character_mode == "human"  → models.yaml `video_i2v_human` (Wan 2.7)
-  brief.character_mode != "human"  → models.yaml `video_i2v`       (Seedance 1.5 Pro)
+  brief.character_mode == "human"  → models.yaml `video_i2v_human` (Wan 2.7, 720p via config)
+  brief.character_mode != "human"  → Seedance 1.5 Pro, resolution HARDCODED to 720p
 
-Concurrency: per-beat clip gen is independent (no shared state between
-beats), so we fan out across a ThreadPoolExecutor. Default 4 workers, read
-from models.yaml `<stage>.concurrency`. Each worker runs its own retry loop;
-the summary list is collected after all futures resolve.
+Sequencing: clips are generated strictly sequentially (no parallelism). fal
+job ids are persisted to run.json (items.clip_jobs) the instant each clip is
+enqueued, so a long-running or interrupted generation can be recovered by
+request_id rather than losing the thread.
 
 Dialogue suppression: when `brief.dialogues_enabled` is falsy (default), the
 clip prompt explicitly forbids speech / mouth-movement-for-speech. Without
@@ -25,10 +27,7 @@ import json
 import math
 import sys
 import textwrap
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
 
 from scripts.lib.config import load as load_config
 from scripts.lib.run_state import RunState
@@ -39,10 +38,12 @@ from scripts.lib.visual_analyzer import VisualAnalyzer
 from scripts.lib import script_io
 
 
-AUTO_RETRY_BUDGET = 2
 DURATION_MIN_S = 3   # lower clamp shared by Seedance + Wan 2.7
 DURATION_MAX_S = 10  # upper clamp; stitcher will retime if VO is longer
-DEFAULT_CONCURRENCY = 4
+
+# Seedance is pinned to 720p in code (see _resolution_for). Per request, this
+# is a hard pin — a models.yaml `video_i2v.resolution` override is ignored.
+SEEDANCE_MODEL = "fal-ai/bytedance/seedance/v1.5/pro/image-to-video"
 
 # Verbatim — Seedance hallucinates Mandarin dialogue when this is missing,
 # and Wan 2.7 occasionally invents lip-sync motion. Inject only when
@@ -98,12 +99,15 @@ def _resolve_video_stage(cfg, brief: dict) -> tuple[str, dict]:
         model = stage.get("model") or "fal-ai/wan/v2.7/image-to-video"
     else:
         stage = cfg.models.get("video_i2v") or {}
-        model = stage.get("model") or "fal-ai/bytedance/seedance/v1.5/pro/image-to-video"
+        model = stage.get("model") or SEEDANCE_MODEL
     return model, stage
 
 
-def _resolution_for(stage: dict, smoke: bool) -> str:
+def _resolution_for(model: str, stage: dict, smoke: bool) -> str:
     if smoke:
+        return "720p"
+    # Seedance is hard-pinned to 720p regardless of any models.yaml override.
+    if model == SEEDANCE_MODEL:
         return "720p"
     return stage.get("resolution") or "1080p"
 
@@ -111,10 +115,6 @@ def _resolution_for(stage: dict, smoke: bool) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run-dir", required=True)
-    ap.add_argument("--auto-retries", type=int, default=AUTO_RETRY_BUDGET)
-    ap.add_argument("--concurrency", type=int, default=None,
-                    help="Max parallel clip generations. Default reads "
-                         "models.yaml <stage>.concurrency, else 4.")
     ap.add_argument("--smoke", action="store_true",
                     help="Limit to one short clip at low res (for end-to-end smoke).")
     args = ap.parse_args()
@@ -185,13 +185,10 @@ def main() -> int:
     fal = FalClient(cfg.fal_key, logger=log, run_id=state.run_id)
     va = VisualAnalyzer(fal, logger=log, run_id=state.run_id)
     model, stage = _resolve_video_stage(cfg, brief)
-    resolution = _resolution_for(stage, args.smoke)
-    concurrency = args.concurrency or stage.get("concurrency") or DEFAULT_CONCURRENCY
-    if args.smoke:
-        concurrency = 1  # smoke = single beat, no need to fan out
+    resolution = _resolution_for(model, stage, args.smoke)
 
     log.log(state.run_id, "clips", "info",
-            f"model={model} resolution={resolution} concurrency={concurrency} "
+            f"model={model} resolution={resolution} sequential=true "
             f"character_mode={character_mode} dialogues_enabled={dialogues_enabled}")
 
     target_beats = script.beats[:1] if args.smoke else script.beats
@@ -209,89 +206,80 @@ def main() -> int:
         if args.smoke:
             duration_s = 4
 
-        attempt = 0
-        addendum = ""
-        ana: dict[str, Any] = {}
         clip_path = rp.clip(b.id)
-        prompt = ""
-        while attempt <= args.auto_retries:
-            prompt = CLIP_PROMPT.format(
-                style=style, aspect=aspect, beat_id=b.id, label=b.label,
-                duration_s=duration_s, narration=b.narration_plain,
-                visual=(b.visual or "(none)"), chars=chars_brief,
-                anchors_block=_anchors_block(b.id),
-                audio_block=audio_block,
-            )
-            if addendum:
-                prompt += f"\n\nADDITIONAL GUIDANCE (regen):\n{addendum}"
+        prompt = CLIP_PROMPT.format(
+            style=style, aspect=aspect, beat_id=b.id, label=b.label,
+            duration_s=duration_s, narration=b.narration_plain,
+            visual=(b.visual or "(none)"), chars=chars_brief,
+            anchors_block=_anchors_block(b.id),
+            audio_block=audio_block,
+        )
 
-            import fal_client  # type: ignore
-            image_url = fal_client.upload_file(str(keyframe))
+        image_url = fal.upload_file(str(keyframe))
 
-            payload = {
-                "prompt": prompt,
-                "image_url": image_url,
-                "duration": duration_s,
-                "resolution": resolution,
-            }
-            result = fal.run(model, payload, phase="clips")
-            video_url = (result.get("video") or {}).get("url") if isinstance(result.get("video"), dict) \
-                else result.get("video_url")
-            if not video_url:
-                raise SystemExit(f"clip response missing video url: {list(result.keys())}")
-            fal.download(video_url, str(clip_path))
+        payload = {
+            "prompt": prompt,
+            "image_url": image_url,
+            "duration": duration_s,
+            "resolution": resolution,
+        }
+        # Persist the fal job id the instant the request is enqueued — before
+        # the (possibly long) generation wait — so an interrupted run can be
+        # recovered by request_id instead of losing the thread.
+        captured: dict = {"request_id": None}
 
-            validation_prompt_path = rp.clip_validation_prompt(b.id)
-            validation_prompt = (
-                validation_prompt_path.read_text(encoding="utf-8")
-                if validation_prompt_path.is_file() else None
-            )
-            if validation_prompt:
-                log.log(state.run_id, "clips", "info",
-                        f"clip {b.id} QA using Claude-authored validation prompt "
-                        f"({len(validation_prompt)} chars)")
-            ana = va.analyse_clip(
-                clip_path, prompt_used=prompt,
-                character_brief=chars_brief, clip_id=b.id,
-                validation_prompt=validation_prompt,
-            )
-            if ana.get("regen_recommendation") in (None, "minor"):
-                break
-            addendum = ana.get("corrective_addendum") or "Improve character consistency and reduce drift."
+        def _on_enqueue(request_id, _bid=b.id) -> None:
+            captured["request_id"] = request_id
+            state.record_clip_job(_bid, model, request_id, status="enqueued")
+            log.log(state.run_id, "clips", "info",
+                    f"clip {_bid} enqueued: request_id={request_id}")
+
+        result = fal.run(model, payload, phase="clips", on_enqueue=_on_enqueue)
+        video_url = (result.get("video") or {}).get("url") if isinstance(result.get("video"), dict) \
+            else result.get("video_url")
+        if not video_url:
+            state.record_clip_job(b.id, model, captured["request_id"], status="failed")
+            raise SystemExit(f"clip response missing video url: {list(result.keys())}")
+        fal.download(video_url, str(clip_path))
+        state.record_clip_job(b.id, model, captured["request_id"], status="complete")
+
+        validation_prompt_path = rp.clip_validation_prompt(b.id)
+        validation_prompt = (
+            validation_prompt_path.read_text(encoding="utf-8")
+            if validation_prompt_path.is_file() else None
+        )
+        if validation_prompt:
+            log.log(state.run_id, "clips", "info",
+                    f"clip {b.id} QA using Claude-authored validation prompt "
+                    f"({len(validation_prompt)} chars)")
+        ana = va.analyse_clip(
+            clip_path, prompt_used=prompt,
+            character_brief=chars_brief, clip_id=b.id,
+            validation_prompt=validation_prompt,
+        )
+
+        needs_review = ana.get("regen_recommendation") == "major"
+        if needs_review:
             log.log(state.run_id, "clips", "warn",
-                    f"clip {b.id} auto-regen attempt {attempt+1}: {addendum}")
-            attempt += 1
+                    f"clip {b.id} flagged for review (major drift): "
+                    f"{ana.get('corrective_addendum') or 'see analysis'}")
 
         rp.clip_analysis(b.id).write_text(json.dumps(ana, indent=2))
         return {
             "id": b.id, "clip": str(clip_path),
             "analysis": str(rp.clip_analysis(b.id)),
             "motion": ana.get("motion_intensity"),
-            "needs_review": ana.get("regen_recommendation") == "major",
+            "needs_review": needs_review,
         }
 
+    # Clips are generated strictly sequentially — no parallelism. Beats are
+    # processed in order; a failure on one beat aborts the phase (the partial
+    # run.json + clips/ on disk preserve progress and job ids for recovery).
     summary: list[dict] = []
-    summary_lock = threading.Lock()
-    if concurrency <= 1 or len(target_beats) <= 1:
-        for b in target_beats:
-            row = _process_beat(b)
-            if row is not None:
-                summary.append(row)
-    else:
-        with ThreadPoolExecutor(max_workers=concurrency) as ex:
-            futs = {ex.submit(_process_beat, b): b.id for b in target_beats}
-            for fut in as_completed(futs):
-                beat_id = futs[fut]
-                try:
-                    row = fut.result()
-                except Exception as e:  # noqa: BLE001
-                    log.log(state.run_id, "clips", "error",
-                            f"beat {beat_id} failed: {e}")
-                    continue
-                if row is not None:
-                    with summary_lock:
-                        summary.append(row)
-        summary.sort(key=lambda r: r["id"])
+    for b in target_beats:
+        row = _process_beat(b)
+        if row is not None:
+            summary.append(row)
 
     (rp.dir / "clips" / "summary.json").write_text(json.dumps(summary, indent=2))
     log.log(state.run_id, "clips", "info",

@@ -82,24 +82,24 @@ Tick spacing > 2 seconds is too coarse — even a 4 s clip needs at least 4 tick
 2. **Verify all files exist before invoking the runner.** A bash one-liner: `ls clips/clip_*.validation.txt | wc -l` should equal the beat count. If not, you skipped a step.
 3. **Invoke `phase_clips.py`** — do NOT call fal inline. The runner:
    - reads `storyboard.json` (incl. structured `anchors`)
-   - routes the i2v model by `brief.character_mode`: `"human"` → `models.yaml:video_i2v_human` (Wan 2.7 I2V on fal, 720p default); anything else → `models.yaml:video_i2v` (Seedance 1.5 Pro, 1080p default)
+   - routes the i2v model by `brief.character_mode`: `"human"` → `models.yaml:video_i2v_human` (Wan 2.7 I2V on fal, 720p via config); anything else → Seedance 1.5 Pro, resolution **hardcoded to 720p** (a `models.yaml:video_i2v.resolution` override is ignored)
    - injects a dialogue-suppression audio direction into every prompt unless `brief.dialogues_enabled === true`
-   - fans clip generation across `<stage>.concurrency` threads (default 4) — beats are independent
+   - generates clips **strictly sequentially** (no parallelism) — one beat at a time, in order
+   - persists each fal job id to `run.json` (`items.clip_jobs[<id>]`) the instant the clip is enqueued, so a long-running or interrupted generation can be recovered by `request_id`
    - uploads each keyframe via `fal_client.upload_file()`
    - runs the Claude-authored validation prompt through `fal-ai/openrouter/router/video`
-   - retries up to 2× with corrective addenda
    - saves zero-padded `clip_NN.mp4` + `clip_NN_analysis.json`
 
    ```bash
    "$OUTPUT/.venv/bin/python" -m scripts.phase_clips --run-dir "$RUN_DIR"
    ```
 
-   Inline `fal_client.subscribe` calls are forbidden — they skip retry logic, anchor injection, and validation-prompt loading, and produce non-zero-padded filenames that break the stitcher.
+   Inline `fal_client.subscribe` calls are forbidden — they skip anchor injection, validation-prompt loading, and job-id persistence, and produce non-zero-padded filenames that break the stitcher.
 
-4. **Auto-correct loop** (handled inside `phase_clips.py`, max 2 retries per clip):
-   - When analysis flags drift / anatomy / anchor swap, the runner appends a corrective addendum and regenerates.
-   - You may rewrite `clips/clip_NN.validation.txt` between human-driven `/create-video-regen` calls to tighten checks; the runner reads the latest version on each run. Add a finer-grained tick (e.g. 0.0–0.3s) if the prior verdict was about an early-frame issue.
-   - If still flagged after 2 tries → `needs_review: true` lands in `summary.json` and Gate 4 surfaces.
+4. **No auto-regeneration — flag for the user.** Each clip is generated exactly once. The runner never auto-regenerates.
+   - When the QA verdict is `major`, the runner logs a warning and sets `needs_review: true` in `summary.json`. It does NOT retry.
+   - `minor` and clean verdicts are recorded in `clip_NN_analysis.json` but not surfaced as review items.
+   - To regenerate a flagged clip, the user drives `/create-video-regen`. You may rewrite `clips/clip_NN.validation.txt` first to tighten checks (e.g. add a finer 0.0–0.3s tick if the verdict was about an early frame); the runner reads the latest version on each run.
 
 5. **Surface for Gate 4.** Walk the user through `summary.json` — flag any `needs_review: true`, show motion intensities (used by the stitcher to pick transitions).
 
