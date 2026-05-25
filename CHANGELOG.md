@@ -2,6 +2,28 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.7.0 — 2026-05-25
+
+### Clip generation: no auto-regen, sequential, job-id persistence, Seedance pinned to 720p
+
+Four coupled changes to Phase 4 (`scripts/phase_clips.py`), driven by a need to keep clip generation predictable and recoverable.
+
+- **No automatic regeneration.** Clips are generated exactly once. The prior ≤2 auto-corrective regen loop is removed. QA still runs on every clip; a `major` verdict now logs a warning and sets `needs_review: true` in `clips/summary.json` for Gate 4 — the user decides whether to regenerate (via `/create-video-regen`). `minor`/clean verdicts are recorded in the analysis JSON but not flagged.
+
+- **Seedance resolution hard-pinned to 720p.** `_resolution_for` now forces `720p` for `fal-ai/bytedance/seedance/v1.5/pro/image-to-video` regardless of any `models.yaml:video_i2v.resolution` override. Wan 2.7 (human mode) still honours its configured `720p`.
+
+- **fal job ids persisted to `run.json`.** `FalClient.run` gained an `on_enqueue` callback (wired to `fal_client.subscribe`). `phase_clips` writes `{endpoint, request_id, status, updated_at}` to `run.json` (`items.clip_jobs[<id>]`) the instant each clip is enqueued — before the generation wait — via new `RunState.record_clip_job`. A long-running or interrupted generation can now be recovered by `request_id` instead of losing the thread. Status transitions enqueued → complete/failed.
+
+- **Strictly sequential generation.** The `ThreadPoolExecutor` fan-out is removed; beats are processed one at a time, in order. The `--concurrency` and `--auto-retries` flags and the `models.yaml:<stage>.concurrency` knob are gone. Sequential keeps the `run.json` job-id writes race-free and respects fal's new-account queue cap (2).
+
+### Files
+
+- `scripts/phase_clips.py` — removed retry loop, `ThreadPoolExecutor`, `--concurrency`/`--auto-retries`; sequential beat loop; `_resolution_for(model, stage, smoke)` hard-pins Seedance to 720p; `on_enqueue` persists job ids.
+- `scripts/lib/fal_client.py` — `run()` accepts optional `on_enqueue` callback forwarded to `fal_client.subscribe`.
+- `scripts/lib/run_state.py` — new `record_clip_job()` writing `items.clip_jobs`.
+- `seed/models.yaml` — documented Seedance 720p hard-pin; removed dead `concurrency` knobs.
+- Docs: CLAUDE.md decisions table (human-video / sequencing / no-auto-regen rows), `skills/clip-generator/SKILL.md`, `skills/clip-generator/references/clip-validation-prompts.md`.
+
 ## 0.6.2 — 2026-05-19
 
 ### Book page output is now opaque + full-bleed + checker-pattern-free

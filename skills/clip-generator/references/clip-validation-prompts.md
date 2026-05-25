@@ -68,9 +68,9 @@ After reading the file, `analyse_clip()`:
 4. Saves the parsed JSON to `clips/clip_<NN>_analysis.json`.
 5. On router failure, falls back to the still-image contact-sheet path with the same prompt + a note that this is a fallback.
 
-## Auto-regen loop
+## Verdict handling (no auto-regen)
 
-Each `regen_recommendation: 'major'` triggers a regen of the clip (up to `--auto-retries 2`). You may rewrite `clip_<NN>.validation.txt` between attempts to tighten checks — e.g. add a 0.0–0.3s sub-tick if the prior verdict was about an early-frame issue.
+A `regen_recommendation: 'major'` verdict does **not** trigger an automatic regen. The runner generates each clip once, logs a warning, and sets `needs_review: true` in `clips/summary.json` so Gate 4 surfaces it to the user. `minor` and clean verdicts are recorded in the analysis JSON but not flagged. To regenerate, the user drives `/create-video-regen`; you may rewrite `clip_<NN>.validation.txt` first to tighten checks — e.g. add a 0.0–0.3s sub-tick if the prior verdict was about an early-frame issue.
 
 ## Anti-patterns
 

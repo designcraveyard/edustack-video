@@ -33,6 +33,21 @@ class RunState:
         body = {k: v for k, v in asdict(self).items() if k != "run_dir"}
         p.write_text(json.dumps(body, indent=2, default=str))
 
+    def record_clip_job(self, clip_id: int, endpoint: str,
+                        request_id: str | None, status: str = "enqueued") -> None:
+        """Persist a fal.ai clip job under items.clip_jobs[clip_id] and save
+        immediately. Called the instant a clip is enqueued (status="enqueued")
+        and again on completion/failure. Lets an interrupted run be recovered
+        by request_id rather than losing the in-flight generation."""
+        jobs = self.items.setdefault("clip_jobs", {})
+        jobs[str(clip_id)] = {
+            "endpoint": endpoint,
+            "request_id": request_id,
+            "status": status,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
+        self.save()
+
     def mark_phase(self, phase: str, status: str, comment: str | None = None) -> None:
         entry = self.phases.setdefault(phase, {"gate_comments": []})
         entry["status"] = status

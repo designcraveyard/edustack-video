@@ -96,12 +96,22 @@ class FalClient:
             pass
 
     # ---------- public API ----------
-    def run(self, endpoint: str, payload: dict, phase: str = "?") -> dict:
+    def run(self, endpoint: str, payload: dict, phase: str = "?",
+            on_enqueue: Callable[[str], None] | None = None) -> dict:
         import fal_client  # imported lazily so the module loads without fal-client installed
         prompt = json.dumps(payload, default=str, sort_keys=True)
+
+        def _call():
+            if on_enqueue is not None:
+                # subscribe fires on_enqueue with the queue request_id the
+                # moment the job is accepted — lets callers persist it before
+                # the (possibly long) generation wait. Fires once per attempt.
+                return fal_client.subscribe(endpoint, arguments=payload,
+                                            on_enqueue=on_enqueue)
+            return fal_client.subscribe(endpoint, arguments=payload)
+
         return self._with_retries(
-            lambda: fal_client.subscribe(endpoint, arguments=payload),
-            phase=phase, endpoint=endpoint, prompt=prompt,
+            _call, phase=phase, endpoint=endpoint, prompt=prompt,
         )
 
     def any_llm(self, model: str, prompt: str, system_prompt: str | None = None,
