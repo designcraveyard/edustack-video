@@ -2,6 +2,36 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.8.0 — 2026-05-26
+
+### Visual localhost template picker for every book path
+
+Book layout selection is now a **polished localhost gallery** instead of picking template names blind from chat. Ported from the `layout-gen` / `layout-templates-web` showcase: each of the 9 templates shows its real reference images (click to zoom in a lightbox), a description + nickname, a meta grid (text position / wrapping / background / aspect·canvas), a frequency bar, tags, and a wireframe that reframes with a Portrait/Landscape toggle. The user selects 2–4 and hits Confirm.
+
+- **New skill `book-template-picker`** — a zero-dependency Node stdlib HTTP server (same lifecycle pattern as the brief-collector server): binds `127.0.0.1:0`, opens the browser, serves the gallery, writes the selection to a handshake JSON, and exits on `PICKER_OK`. Reference thumbnails are served straight from canonical `seed/template-references/` via a guarded `/refs/<path>` route — **no duplicated copy** of the 5 MB of refs.
+- **Wired into all three book paths.** `/create-book` (book-standalone) and `/create-book-from-keyframes` (book-from-keyframes) now launch the picker for their template-selection step, with a chat-based fallback if no browser is available. The in-video path (`book-plan`, fed by the brief form) reads `brief.book.templates` as before, and can re-open the picker on request.
+- **Brief-form gallery upgraded** to match: richer cards with a frequency badge, nickname, accent ring + checkmark on selection, and larger reference thumbnails.
+- **Two-image prompting + attachments verified unchanged** — `scripts/lib/book_layout_renderer.py` already sends `[layout_ref (IMAGE 1), content_ref (IMAGE 2), character_sheets (IMAGE 3+)]` capped at gpt-image-2's 4-image limit, and `phase_book_standalone.py` correctly aggregates plan-level + per-page `character_refs`. No renderer changes needed.
+
+### Files
+
+- `skills/book-template-picker/SKILL.md` — new skill (launch instructions, handshake contract, fallback).
+- `skills/book-template-picker/server/server.mjs` — zero-dep server (`--run-dir` / `--out` / `--min` / `--max` / `--page-count` / `--title` / `--no-open`).
+- `skills/book-template-picker/server/public/{index.html,styles.css,picker.js,templates.json}` — the gallery UI + display metadata (picker's source of truth).
+- `skills/book-template-picker/server/public/wireframes/{1..9}.svg` — copied from the brief-collector wireframes.
+- `skills/book-standalone/SKILL.md`, `skills/book-from-keyframes/SKILL.md`, `skills/book-plan/SKILL.md` — launch the picker / point at it.
+- `commands/create-book.md`, `commands/create-book-from-keyframes.md` — flow updated to mention the picker.
+- `skills/brief-collector/server/public/{form.js,styles.css,templates/manifest.json}` — richer book-template cards.
+- `plugin.json` — registered `skills/book-template-picker`; version → 0.8.0.
+
+### Invariants updated
+
+New CLAUDE.md invariant #10: template selection is a visual localhost picker, and the **template ids MUST stay identical** across the three manifests — `seed/template-references/manifest.json` (renderer), `skills/book-template-picker/server/public/templates.json` (picker display), and `skills/brief-collector/server/public/templates/manifest.json` (brief-form mirror). Never duplicate the reference images.
+
+### Verification
+
+The picker server was smoke-tested end-to-end (every endpoint, path-traversal guard, POST→handshake→clean exit) and visually verified in a headless Chromium via Playwright (all 39 reference thumbnails load; selection state, lightbox open/close, and orientation toggle confirmed). Two CSS bugs caught and fixed during visual review: a `[hidden]` lightbox that an over-broad `display:flex` class kept permanently visible (whole page dimmed), and lazy-loaded thumbnails that could render blank — switched to eager loading.
+
 ## 0.7.0 — 2026-05-25
 
 ### Clip generation: no auto-regen, sequential, job-id persistence, Seedance pinned to 720p

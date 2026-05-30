@@ -10,10 +10,11 @@ Use this when a video run has completed and the user wants a picture book built 
 
 1. Identify or ask for the source run directory (must have `storyboard/keyframes/beat_*.png`).
 2. List available keyframes with beat labels and narration.
-3. Walk the user through a chat-driven page assignment: which keyframe → which page → which template → what voice copy → remove background or not.
-4. Compose and save `<run-dir>/book/from_keyframes.config.json` for review.
-5. Run `scripts.phase_book_from_keyframes` to produce the RGBA pages and the final A4P / A3L canvases at 300 DPI.
-6. Surface the outputs in chat with clickable paths.
+3. Open the **localhost template picker** (`book-template-picker`) — a browser gallery of the 9 layouts with real reference images — to choose the 2–4 layouts for this book (falls back to chat if no browser).
+4. Walk the user through a chat-driven page assignment: which keyframe → which page → which template (from the picked shortlist) → what voice copy → remove background or not.
+5. Compose and save `<run-dir>/book/from_keyframes.config.json` for review.
+6. Run `scripts.phase_book_from_keyframes` to produce the RGBA pages and the final A4P / A3L canvases at 300 DPI.
+7. Surface the outputs in chat with clickable paths.
 
 If the user does not have a completed video run yet, suggest `/create-video` first — this command is for the post-video book path. If the user wants entirely fresh book illustrations (not based on the video keyframes), tell them to set `brief.book.page_count_target > 0` in their video brief and run `/create-video` with the book branch enabled — that's the default Phase B1–B3 path.
 

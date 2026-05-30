@@ -46,13 +46,17 @@ Three paths to a book exist now; pick the right one for the request:
    - Save text to `<run-dir>/source/chapter.txt`.
    - For reference images, ask for file paths and copy each into `<run-dir>/sources/img-NN.png` (PNG-normalize via Pillow if needed).
    - At least one source (text OR images) is required. Both are recommended.
-4. **Pick page count + templates.**
+4. **Pick page count + templates — via the localhost picker.**
    - Ask "how many pages? (1–12)" — default to 6 if unclear.
-   - Show the user the 9 templates with their content_type and best_ref preview path from [seed/template-references/manifest.json](../../seed/template-references/manifest.json). Help them pick by content type:
-     - narrative scenes → full-bleed-with-text-zone, split-layout, illustrated-border
-     - educational → scattered-spots, connected-infographic
-     - character intros → vignette-on-page, character-text-pocket
-   - Templates can repeat across pages — pick the BEST per page, not unique.
+   - **Open the visual template picker** ([book-template-picker](../book-template-picker/SKILL.md)). It opens a localhost gallery of the 9 layouts with real reference images, descriptions, and wireframes so the user selects 2–4 by clicking:
+     ```bash
+     node "${CLAUDE_PLUGIN_ROOT}/skills/book-template-picker/server/server.mjs" \
+         --run-dir "$RUN_DIR" --min 2 --max 4 --page-count "$PAGE_COUNT" \
+         --title "Pick layouts for your book"
+     ```
+     Tell the user the printed `http://127.0.0.1:PORT/` URL, wait for `PICKER_OK`, then read `<run-dir>/book/template-selection.json` → `templates` (shortlist) and `page_count`.
+   - **Fallback (no browser / closed without confirming):** present the 9 templates with their `best_ref` preview paths from [seed/template-references/manifest.json](../../seed/template-references/manifest.json) and let the user pick by name. Match by content type: narrative → full-bleed-with-text-zone / split-layout / illustrated-border; educational → scattered-spots / connected-infographic; character intros → vignette-on-page / character-text-pocket.
+   - Templates can repeat across pages — the shortlist is the menu; pick the BEST per page in step 5, not one unique template per page.
 5. **Plan each page (chat-driven).** For each page, gather:
    - Template id.
    - Scene description (you draft from chapter text + page intent; user tweaks).

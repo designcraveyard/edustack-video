@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 120" fill="none" stroke="#444" stroke-width="1.4">
+  <rect x="2" y="2" width="86" height="116" rx="3" fill="#fafafa"/>
+  <ellipse cx="45" cy="44" rx="32" ry="32" fill="#e8e0d0" stroke="#888"/>
+  <rect x="10" y="84" width="70" height="28" stroke-dasharray="3 3" fill="none" stroke="#666"/>
+  <text x="22" y="102" font-family="system-ui" font-size="6" stroke="none" fill="#666">TEXT</text>
+</svg>

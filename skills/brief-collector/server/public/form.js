@@ -319,6 +319,7 @@ async function loadTemplateGallery() {
       const card = document.createElement("div");
       card.className = "card";
       card.dataset.id = t.id;
+      if (t.badgeColor) card.style.setProperty("--card-accent", t.badgeColor);
 
       const wf = document.createElement("img");
       wf.className = "wf";
@@ -326,14 +327,27 @@ async function loadTemplateGallery() {
       wf.alt = `${t.name} wireframe`;
       card.appendChild(wf);
 
+      const badge = document.createElement("div");
+      badge.className = "badge";
+      badge.textContent = `~${t.frequency}%`;
+      if (t.badgeColor) { badge.style.background = t.badgeColor + "22"; badge.style.color = t.badgeColor; }
+      card.appendChild(badge);
+
       const name = document.createElement("div");
       name.className = "name";
       name.textContent = t.name;
       card.appendChild(name);
 
+      if (t.nickname) {
+        const nick = document.createElement("div");
+        nick.className = "nick";
+        nick.textContent = t.nickname;
+        card.appendChild(nick);
+      }
+
       const meta = document.createElement("div");
       meta.className = "meta";
-      meta.textContent = `${t.aspect} • ${t.canvas} • ~${t.frequency}% • ${(t.bestFor || []).join(", ")}`;
+      meta.textContent = `${t.aspect} • ${t.canvas} • ${(t.bestFor || []).join(", ")}`;
       card.appendChild(meta);
 
       const thumbs = document.createElement("div");

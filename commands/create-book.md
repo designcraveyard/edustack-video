@@ -12,7 +12,7 @@ Standalone video-less book run. Use when the user wants a book directly — no P
 2. Pick a fresh run directory (pattern: `<output>/runs/YYYY-MM-DD-book-<topic-slug>-NN/`).
 3. Collect mini-brief (topic, class, language, style) → `brief.json`.
 4. Collect source content: chapter text saved to `source/chapter.txt`, reference images copied into `sources/`.
-5. Pick page count + templates by content type, with preview paths from `seed/template-references/manifest.json`.
+5. Pick page count, then open the **localhost template picker** (`book-template-picker`) — a browser gallery of the 9 layouts with real reference images, descriptions, and wireframes — and select 2–4. Falls back to chat-based picking if no browser is available.
 6. Plan each page in chat — template, scene description, book voice copy, which content refs to use.
 7. Run `scripts.phase_book_standalone` with `--run-print-prep` to render every page and produce the final 300 DPI canvases.
 8. Surface clickable paths to `book/print/page-NN.png` + sidecar `.txt` for designer handoff.

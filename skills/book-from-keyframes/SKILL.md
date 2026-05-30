@@ -42,9 +42,17 @@ This skill builds a print-ready picture book from an **existing video run's stor
    ...
    ```
 
+2b. **Open the template picker to choose the layout shortlist.** Before per-page assignment, launch the visual picker ([book-template-picker](../book-template-picker/SKILL.md)) so the user sees the 9 layouts with real reference images and picks the 2–4 they want available for this book:
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/skills/book-template-picker/server/server.mjs" \
+       --run-dir "$RUN_DIR" --min 2 --max 4 \
+       --title "Pick layouts for your keyframe book"
+   ```
+   Wait for `PICKER_OK`, then read `<run-dir>/book/template-selection.json` → `templates`. Use this shortlist as the menu when assigning a template per page in step 3. **Fallback** (no browser): name the nine templates in chat and let the user pick. The nine are: `full-bleed-with-text-zone`, `vignette-on-page`, `split-layout`, `scattered-spots`, `full-spread-no-text`, `illustrated-border`, `character-text-pocket`, `connected-infographic`, `spread-scene-plus-spots`.
+
 3. **Walk the user through page assignment.** For each book page they want, gather:
    - **Source keyframe** — which `beat_NN.png` to use. Same keyframe can be used on multiple pages with different templates. The user can also skip beats they don't want in the book.
-   - **Template** — one of the nine: `full-bleed-with-text-zone`, `vignette-on-page`, `split-layout`, `scattered-spots`, `full-spread-no-text`, `illustrated-border`, `character-text-pocket`, `connected-infographic`, `spread-scene-plus-spots`. See [skills/book-plan/references/templates.md](../book-plan/references/templates.md) for the layout intent of each.
+   - **Template** — one from the picker shortlist (step 2b). See [skills/book-plan/references/templates.md](../book-plan/references/templates.md) for the layout intent of each.
    - **Book voice copy** — the text that lives on the printed page beside / under the illustration. Drafted by you in the chosen `brief.book.voice` style (storybook_narrator / factual_calm / playful_rhyming). For each beat, you can adapt the script's narration into book voice (the video narration tends to be punchy and verbal; book voice is calmer and reads on the page). Show the user your draft per page; let them tweak in chat.
    - **Background removal** — default `true` (run fal-ai/birefnet/v2 to cut out the subject and leave a transparent background; cleanest for layout). User can opt out per-page (`false`) if the keyframe already has a clean background or they want to preserve scene context (e.g. for a `full-bleed-with-text-zone` template where the full scene is the point).
 

@@ -40,7 +40,7 @@ description: Phase B1 — curate the book page list. Reads script + characters +
 ## Logic
 
 1. Read all inputs. Build `character_brief` text from `characters/description_block.md`.
-2. Read `brief.book.templates` (2–4 templates) and `brief.book.page_count_target`.
+2. Read `brief.book.templates` (2–4 templates) and `brief.book.page_count_target`. These were chosen in the brief form's visual template gallery. If `brief.book.templates` is missing/empty, or the user asks to re-pick the layouts before planning, open the standalone [book-template-picker](../book-template-picker/SKILL.md) (`node ${CLAUDE_PLUGIN_ROOT}/skills/book-template-picker/server/server.mjs --run-dir "$RUN_DIR" --min 2 --max 4`), wait for `PICKER_OK`, and read the shortlist from `<run-dir>/book/template-selection.json`.
 3. Decide page composition: ~60% reused video scenes + ~40% book-only scenes. Total = exactly `page_count_target`.
 4. For each page, assign a template using this content-type → template map (pick the FIRST in the user's shortlist that matches):
    - narrative scene → `full-bleed-with-text-zone`, `split-layout`, or `illustrated-border`

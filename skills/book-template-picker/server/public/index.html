@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>edustack · book layouts</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <h1 id="title">Pick your book layouts</h1>
+      <p class="sub">9 reproducible patterns for children's book pages. Select the ones that fit your story, then confirm.</p>
+
+      <div class="toggle" role="tablist" aria-label="Wireframe orientation">
+        <button id="t-portrait" class="active" type="button">▯ Portrait A4</button>
+        <button id="t-landscape" type="button">▭ Landscape A3</button>
+      </div>
+
+      <div class="stats" id="stats"></div>
+    </header>
+
+    <main id="gallery" class="gallery"></main>
+
+    <section class="obs-wrap">
+      <h2 class="obs-title">Layout principles</h2>
+      <div class="obs-grid" id="observations"></div>
+    </section>
+
+    <footer class="foot">edustack-video · book layout picker · 9 templates · 39 reference images</footer>
+  </div>
+
+  <!-- Sticky selection bar -->
+  <div class="selbar" id="selbar">
+    <div class="selbar-inner">
+      <label class="pagecount">
+        <span>Pages</span>
+        <input type="number" id="page-count" min="0" max="12" value="0" />
+      </label>
+      <div class="sel-status" id="sel-status">Pick at least 2 templates.</div>
+      <button id="confirm" class="confirm" type="button" disabled>Confirm selection</button>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" hidden>
+    <img id="lightbox-img" alt="" />
+  </div>
+
+  <script src="/static/picker.js" type="module"></script>
+</body>
+</html>
