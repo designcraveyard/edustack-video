@@ -28,7 +28,7 @@
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, resolve, dirname, extname, normalize } from "node:path";
+import { join, resolve, dirname, extname, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 
@@ -73,10 +73,16 @@ const MIME = {
 };
 
 // Guard against path traversal: resolve the requested path under `base` and
-// confirm it stays inside `base`.
+// confirm it stays inside `base`. Cross-platform — uses path.relative()
+// instead of comparing string prefixes so Windows backslash separators don't
+// break the inside-base check. (The older "base + '/'" approach silently
+// 404'd every /static/* and /refs/* request on Windows because the joined
+// target uses backslashes while the comparison string used a forward slash.)
 function safeJoin(base, relPath) {
   const target = normalize(join(base, decodeURIComponent(relPath)));
-  if (target !== base && !target.startsWith(base + "/")) return null;
+  const rel = relative(base, target);
+  // ".." anywhere in `rel` means the path tried to escape `base`.
+  if (rel.startsWith("..") || rel.split(sep).includes("..")) return null;
   return target;
 }
 
