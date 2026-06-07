@@ -2,6 +2,18 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.8.1 — 2026-06-07
+
+### Windows portability — two silent failures fixed
+
+The localhost servers (book-template-picker + brief-collector) had two cross-platform bugs that silently broke the picker UX on Windows clients. macOS and Linux were unaffected. Both fixes ship in 0.8.1.
+
+- **Picker page rendered blank on Windows** — `safeJoin` in [skills/book-template-picker/server/server.mjs](skills/book-template-picker/server/server.mjs) used `target.startsWith(base + "/")` to check that the resolved file path stayed inside `publicDir` / `refsRoot`. On Windows, `path.normalize(join(...))` uses backslash separators (`C:\…\public\styles.css`), so the check against `base + "/"` never matched and every `/static/*` and `/refs/*` request 404'd. Only the bare HTML index rendered (it bypasses `safeJoin`), which is why clients saw the title + heading text in default browser fonts but no styles, gallery cards, wireframes, or reference images. Fix uses `path.relative(base, target)` and rejects anything starting with `..` — cross-platform clean (`4a36187`).
+
+- **Browser didn't auto-open on Windows** — Both server.mjs files (`book-template-picker` + `brief-collector`) used `process.platform === "darwin" ? "open" : "xdg-open"`. On Windows (`win32`), the opener fell through to `xdg-open`, which is Linux-only. `spawn` with `stdio: "ignore"` swallowed the ENOENT, so the server kept running but the browser stayed shut. The user had to copy-paste the printed `http://127.0.0.1:PORT/` from Claude's chat into their browser by hand. Fix adds a Windows branch using the canonical `cmd /c start "" <url>` recipe (`235af00`).
+
+Net effect on the client's next `/plugin-update`: the picker auto-launches in their default browser, fully styled with all 9 template cards + wireframes + reference image previews + lightbox zoom + Portrait/Landscape toggle. The fallback "no-browser, paste URL manually" path stays as a graceful degradation if `cmd /c start` fails for any reason.
+
 ## 0.8.0 — 2026-05-26
 
 ### Visual localhost template picker for every book path
