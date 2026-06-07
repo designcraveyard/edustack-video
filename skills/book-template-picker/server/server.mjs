@@ -165,6 +165,18 @@ server.listen(0, "127.0.0.1", () => {
     console.log("(--no-open: browser not launched)");
     return;
   }
-  const opener = process.platform === "darwin" ? "open" : "xdg-open";
-  spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+  // Cross-platform browser launch. Windows previously fell through to
+  // `xdg-open` (a Linux-only command) and silently failed — the server still
+  // ran, but the user had to copy-paste the URL from this log into their
+  // browser. The `start ""` form (empty title) is the canonical Windows
+  // recipe — `start` interprets the first quoted arg as a console title.
+  let cmd, cmdArgs;
+  if (process.platform === "darwin") {
+    cmd = "open"; cmdArgs = [url];
+  } else if (process.platform === "win32") {
+    cmd = "cmd"; cmdArgs = ["/c", "start", "", url];
+  } else {
+    cmd = "xdg-open"; cmdArgs = [url];
+  }
+  spawn(cmd, cmdArgs, { stdio: "ignore", detached: true, shell: false }).unref();
 });

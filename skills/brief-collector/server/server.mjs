@@ -178,6 +178,16 @@ server.listen(0, "127.0.0.1", () => {
   if (!existsSync(join(configDir, "elevenlabs.key"))) {
     console.log("Warning: no ElevenLabs key found at .config/elevenlabs.key — voice list will be empty.");
   }
-  const opener = process.platform === "darwin" ? "open" : "xdg-open";
-  spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+  // Cross-platform browser launch. See book-template-picker/server.mjs for
+  // the rationale — Windows previously fell through to `xdg-open` and silently
+  // failed.
+  let cmd, cmdArgs;
+  if (process.platform === "darwin") {
+    cmd = "open"; cmdArgs = [url];
+  } else if (process.platform === "win32") {
+    cmd = "cmd"; cmdArgs = ["/c", "start", "", url];
+  } else {
+    cmd = "xdg-open"; cmdArgs = [url];
+  }
+  spawn(cmd, cmdArgs, { stdio: "ignore", detached: true, shell: false }).unref();
 });
