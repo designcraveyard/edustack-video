@@ -47,7 +47,10 @@ Full taxonomy in [references/elevenlabs-best-practices.md](./references/elevenla
 
 **Emphasis** — Wrap a word in CAPS for stress, e.g. `Three INGREDIENTS — sunlight, water, air.` (Don't overuse — 1–2 per beat max.)
 
-**Hindi / Hinglish** — `eleven_v3` model handles Devanagari natively. Don't romanise. Numbers and English loanwords inside Hindi can be written either way; prefer Devanagari spelling for the model to phonemize consistently (`दस` not `10`, `ऑक्सीजन` not `oxygen`).
+**Hindi / Hinglish (HARD RULE when `language` is `Hindi` or `Hinglish`)** — every **Hindi word in the text sent to ElevenLabs MUST be written in Devanagari (देवनागरी), never romanised Latin.** `eleven_v3` phonemizes from the written script, so romanised Hindi ("kya aap jaante hain") is read with English phonemes and sounds wrong — it is a hard fail here.
+- `language: Hindi` → the entire narration is Devanagari.
+- `language: Hinglish` → natural code-mix: Hindi words in Devanagari, genuine English / proper nouns / technical terms kept in Latin (`photosynthesis एक ऐसा process है जिसमें…`). `eleven_v3` reads mixed Latin + Devanagari correctly.
+- Write numbers as Hindi/Devanagari words (`दस`, not `10`) so they aren't read in English. English technical terms stay Latin — do NOT force-transliterate them into Devanagari (`oxygen`, not `ऑक्सीजन`), which both mispronounces and produces garbled romanised subtitles downstream.
 
 Tags ONLY work with `model_id: eleven_v3` — other models speak them literally.
 
@@ -55,7 +58,7 @@ Tags ONLY work with `model_id: eleven_v3` — other models speak them literally.
 
 1. Load `script.md`. Parse with `script_io.load`. Note `language`, `mode`, `class_level`, `style`, `dialogues_enabled`, and the Cast block (for character voice cues if dialogues_enabled).
 2. Read the Strategy and Sound sections of the script (human-readable, not parsed) to understand the emotional arc and SFX-cue points.
-3. **For each beat, compose tagged narration** following the required-density table. Pick tag choices based on the beat's role (hook → curious/excited; setup → calm/warm; mechanism → focused/clear; consequence → satisfied/serious; recap → warm/happy). For Hindi, prefer Devanagari for numbers and loanwords.
+3. **For each beat, compose tagged narration** following the required-density table. Pick tag choices based on the beat's role (hook → curious/excited; setup → calm/warm; mechanism → focused/clear; consequence → satisfied/serious; recap → warm/happy). **If `language` is `Hindi` or `Hinglish`, write every Hindi word in Devanagari** (see the Hindi/Hinglish hard rule above) — Hindi must never appear romanised in the text you send to ElevenLabs.
 4. **Concatenate** all tagged beats into a single tagged narration string with `<BEAT N>` markers retained inline so beat boundaries can be computed from the alignment later.
 5. **Count tags before calling the API.** If `total_tags / total_narration_minutes < 6`, the prompt is too thin — go back to step 3 and add more.
 6. **Save the tagged text** to `<run-dir>/audio/vo_prompt.md` BEFORE calling the API.
@@ -69,7 +72,7 @@ Tags ONLY work with `model_id: eleven_v3` — other models speak them literally.
 - `vo_prompt.md` exists and contains the full tagged narration with `<BEAT N>` boundaries preserved.
 - Tag count satisfies the per-minute minimum (≥6 per minute of narration). If under, REGENERATE the prompt before calling the API.
 - Every beat opens or closes with at least one tag (opener for hook/setup beats, pacing tag for transitions).
-- For Hindi content, the prompt uses Devanagari for numbers and key loanwords.
+- **If `language` is `Hindi` or `Hinglish`: scan the final prompt and confirm NO Hindi word is romanised — all Hindi is Devanagari.** If any romanised Hindi remains, rewrite it to Devanagari BEFORE calling the API. (English/technical terms staying in Latin is correct for Hinglish.)
 - `model_id: eleven_v3` confirmed in the API call.
 - `vo_timeline.beats[]` has one entry per `script.md` beat.
 

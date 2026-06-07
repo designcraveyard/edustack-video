@@ -64,6 +64,7 @@ When you touch anything observability-related — the sink (`scripts/lib/supabas
 |---|---|---|
 | Image + video + vision | fal.ai only | Single key, single retry surface |
 | VO | ElevenLabs direct (not via fal) | Need word-level timestamps for stitcher |
+| VO writing system | For `language ∈ {Hindi, Hinglish}`, the narration Claude writes (and that reaches ElevenLabs) must have **all Hindi words in Devanagari** — देवनागरी for Hindi; for Hinglish, Hindi in Devanagari with English/technical terms kept in Latin | ElevenLabs `eleven_v3` phonemizes from the written script, so romanised Hindi is read with English phonemes. Enforced **where the text is authored** — the Claude-driven [`script-writer`](skills/script-writer/SKILL.md) (writes `script.md` narration) and [`vo-generator`](skills/vo-generator/SKILL.md) (pre-API Devanagari validation) skills, which ARE Phase 1/2. `scripts/phase_script.py` / `phase_vo.py` are **legacy and not invoked** — don't put VO-content rules there. |
 | Vision model | Gemini 2.5 Pro via `fal-ai/any-llm` → OpenRouter | Pro materially reduces drift false-negatives vs Flash; cost is rounding-error |
 | Stitching | MoviePy + ffmpeg local | Continuity with edu-vid-gen-cloud; full control over transitions |
 | Observability sink | Supabase `eduplugin_events` on Edustack project + viewer at EduStack-Platform `/admin/eduplugin/runs` | No standalone VPS; reuses existing infra; one table, six streams |

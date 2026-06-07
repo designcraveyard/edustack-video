@@ -1,5 +1,14 @@
 """Phase 1 — Script writing.
 
+⚠️ LEGACY — NOT INVOKED. The live Phase 1 is the Claude-authored `script-writer`
+skill (skills/script-writer/SKILL.md): Claude writes `script.md` directly (rich
+Strategy/Cast/Sound/Scene-Timeline + tagged, native-script Beats). No skill or
+command runs this module — unlike phase_clips / phase_characters / phase_book_*,
+whose SKILL.md explicitly invoke `python -m scripts.phase_*`. Behaviour changes
+to script CONTENT (language/Devanagari rules, tag density, structure) belong in
+the SKILL.md, NOT here — edits to this file will not run. Kept for reference and
+as a possible future deterministic path.
+
 Two modes:
 - `standard`: produces a structured beat-format script via Gemini (fal-ai/any-llm
   with google/gemini-2.5-pro) sized for `brief.duration_seconds`.

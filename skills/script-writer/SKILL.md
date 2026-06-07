@@ -139,6 +139,17 @@ SAME video — same scene count, same narration, same timing. Beats are the
 machine-parseable mirror of the Timeline.
 ```
 
+### Narration writing system (Hindi / Hinglish)
+
+The Beats narration is sent to ElevenLabs **verbatim** (it phonemizes from the
+written script), so the script it's written in is load-bearing:
+
+- `language: Hindi` → narration entirely in Devanagari (देवनागरी). No romanised Hindi.
+- `language: Hinglish` → natural code-mix: **every Hindi word in Devanagari**, genuine English / technical terms kept in Latin (`photosynthesis एक ऐसा process है…`). Hindi MUST NOT be romanised (`ek aisa … hai` is forbidden); English MUST NOT be force-transliterated into Devanagari (`oxygen`, not `ऑक्सीजन`).
+- `language: Tamil` → Tamil script; `Bengali` → Bengali script; `English` → Latin.
+
+`label` and the `<!-- visual: … -->` hint may stay in English in all cases — only the spoken narration is constrained. This `script.md` narration is what reaches ElevenLabs, so getting the writing system right **here** is the whole ballgame — there is no downstream auto-fix.
+
 ## Checklist (TodoWrite)
 
 1. Load `brief.json`. Note `script_mode`, `character_mode`, `dialogues_enabled`, `annotations_enabled`, `style`, `aspect`, `language`, `class_level`, `duration_seconds`.
@@ -166,6 +177,7 @@ machine-parseable mirror of the Timeline.
 - Visual hints describe verbs and nouns, not adjectives — animatable.
 - Total estimated duration is within ±15% of `duration_seconds` (standard mode only).
 - For word_to_word, narration preserves the chapter's wording (light cleanup only — no rephrasing).
+- For `language: Hindi`/`Hinglish`, every Hindi word in the narration is in Devanagari, never romanised (English/technical terms in Latin is fine for Hinglish).
 
 ## Common failure modes (avoid)
 

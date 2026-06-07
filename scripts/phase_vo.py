@@ -1,5 +1,12 @@
 """Phase 2 — Voiceover + vo_timeline.json.
 
+⚠️ LEGACY — NOT INVOKED. The live Phase 2 is the Claude-authored `vo-generator`
+skill (skills/vo-generator/SKILL.md), which composes the expression-tagged VO and
+produces vo_timeline.json. No skill or command runs this module. Behaviour changes
+to the VO TEXT (e.g. Devanagari/Hindi rules, audio-tag density) belong in the
+SKILL.md, NOT here — edits to this file will not run. Kept for reference and as a
+possible future deterministic path.
+
 ElevenLabs direct, with word-level timestamps. We strip visual hints from the
 script first so they aren't spoken. Beat boundaries are inferred by anchoring
 each beat's leading words inside the alignment table.

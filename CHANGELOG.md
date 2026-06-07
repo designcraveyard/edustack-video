@@ -2,6 +2,19 @@
 
 All notable changes to `edustack-video` will be documented here. Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.8.2 — 2026-06-07
+
+### Hindi/Hinglish VO is written in Devanagari (enforced in the skills)
+
+When the brief's `language` is **Hindi** or **Hinglish**, the narration that goes to ElevenLabs for voice generation must have **all Hindi words written in Devanagari (देवनागरी), never romanised Latin.** ElevenLabs `eleven_v3` phonemizes from the written script, so romanised Hindi ("kya aap jaante hain") is read with English phonemes and sounds wrong. This was only a soft hint before; it is now a hard rule.
+
+Phase 1 (script) and Phase 2 (VO) are **Claude-authored** — Claude writes `script.md` and composes the VO via the `script-writer` / `vo-generator` skills — so the rule lives where the text is actually written:
+
+- **`script-writer` skill** — new "Narration writing system" rule + quality-bar check: `Hindi` → entire narration in Devanagari; `Hinglish` → natural code-mix with every Hindi word in Devanagari and English/technical terms kept in Latin (`photosynthesis एक ऐसा process है…`). Hindi is never romanised; English is never force-transliterated into Devanagari.
+- **`vo-generator` skill** — the same hard rule plus a **pre-API validation step**: before calling ElevenLabs, scan the prompt and rewrite any romanised Hindi to Devanagari (English/technical terms staying Latin is correct for Hinglish).
+
+No pipeline code path changed. `scripts/phase_script.py` and `scripts/phase_vo.py` are **legacy and not invoked** by any skill or command (the live phases are the skills above); both files now carry a banner saying so, to stop future edits from landing in dead code. English-only videos and other languages are unaffected.
+
 ## 0.8.1 — 2026-06-07
 
 ### Windows portability — two silent failures fixed
